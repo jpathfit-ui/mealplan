@@ -130,6 +130,21 @@ details summary{cursor:pointer;color:var(--acc);font-weight:600;font-size:14px}
 .sug{border:1px solid var(--line);border-radius:14px;background:var(--paper);margin-top:6px;overflow:hidden;box-shadow:0 10px 20px -14px var(--shadow)}
 .sug button{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px dashed var(--line);padding:12px 14px;font:inherit;font-size:14px;color:var(--ink);cursor:pointer}
 .sug button:first-child{border-top:0}
+.acc{border-top:1px dashed var(--line)}
+.acc:first-child{border-top:0}
+.acc-h{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:17px 2px;font:inherit;cursor:pointer;color:var(--ink);text-align:left}
+.acc-t{font:600 19px var(--serif);color:var(--acc);flex:none}
+.acc-s{flex:1;min-width:0;text-align:right;font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chev{width:20px;height:20px;flex:none;fill:none;stroke:var(--mut);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.acc.open .chev{transform:rotate(180deg)}
+.acc-b{padding:0 2px 20px}
+.mrow{display:grid;grid-template-columns:1fr 76px 72px 26px;gap:6px;align-items:center;padding:5px 0;border-top:0}
+.mrow.hd{font-size:11px;color:var(--mut);font-weight:600;padding:0 0 2px}
+.mrow input,.mrow select{width:100%;padding:8px 8px;font-size:14px;border-radius:10px}
+.rec{font:600 24px var(--serif);color:var(--ink);margin:6px 0 0}
+.stop{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px}
+.stoph{display:flex;justify-content:space-between;gap:8px}
+.stoph span{font-variant-numeric:tabular-nums;font-weight:600}
 </style>
 </head>
 <body>
@@ -217,7 +232,7 @@ function defaultState(){
       kcal:2000, pPct:30, cPct:40, fPct:30, dayVar:10, mealVar:20, ceiling:true,
       meals:[{id:uid(),name:'Breakfast',type:'big',temp:'any'},{id:uid(),name:'Lunch',type:'light',temp:'any'},{id:uid(),name:'Dinner',type:'big',temp:'any'}],
       days:7, rotate:1, temp:'any', method:'Any', time:'Any', budget:0,
-      stores:['No Frills','Walmart','Metro','Costco'], primary:'No Frills', trip:5, perKm:0.65, home:{text:'',lat:null,lon:null}, storeInfo:{}, sheetUrl:''
+      stores:['No Frills','Walmart','Metro','Costco'], primary:'No Frills', trip:5, pick:'best', perKm:0.65, home:{text:'',lat:null,lon:null}, storeInfo:{}, sheetUrl:''
     },
     foods, plan:null, history:[], log:[], done:{}
   };
@@ -563,6 +578,7 @@ function vList(){
    <div class="sum"><div><b>${money(L.total)}</b>at ${esc(st.primary)}</div>
    <div><b class="${L.save>0?'ok':''}">${money(L.save)}</b>saved vs typical</div>
    ${st.budget>0?`<div><b class="${L.total>st.budget?'bad':'ok'}">${money(st.budget-L.total)}</b>${L.total>st.budget?'over':'left of'} ${money(st.budget)}</div>`:''}</div></div>`;
+  h += vShop(L);
   h += `<div class="card"><h2>Buy (biggest spend first)</h2>`;
   L.lines.forEach(l => {
     const done = S.done[l.f.id];
@@ -584,32 +600,79 @@ function stopCost(store){
   if(km === null || isNaN(km)) return {cost: st.trip, km: null};
   return {cost: km * st.perKm, km};
 }
+const kmOf = name => { const i = (S.settings.storeInfo || {})[name] || {}; return (i.km === undefined || i.km === null || i.km === '' || isNaN(+i.km)) ? null : +i.km; };
+function evalPlan(order, lines){
+  const per = {}; order.forEach(x => per[x] = {items:[], cost:0});
+  let items = 0;
+  lines.forEach(l => {
+    let bs = order[0], bp = priceAt(l.f, bs);
+    order.forEach(x => { const p = priceAt(l.f, x); if(p < bp - 1e-9){ bp = p; bs = x; } });
+    per[bs].items.push({f:l.f, g:l.g, kg:l.kg, cost:l.kg*bp});
+    per[bs].cost += l.kg*bp; items += l.kg*bp;
+  });
+  return {stores: order.filter(x => per[x].items.length), per, items};
+}
+function driveFor(used){
+  const st = S.settings; let cost = 0, approx = false, km = 0;
+  if(!used.length) return {cost:0, approx:true, km:0};
+  const anchor = used.includes(st.primary) ? st.primary : used.slice().sort((a,b) => (kmOf(a) ?? 1e9) - (kmOf(b) ?? 1e9))[0];
+  if(kmOf(anchor) === null){ cost += st.trip; approx = true; } else { cost += 2*kmOf(anchor)*st.perKm; km += 2*kmOf(anchor); }
+  used.filter(x => x !== anchor).forEach(x => { const sc = stopCost(x); cost += sc.cost; if(sc.km === null) approx = true; else km += sc.km; });
+  return {cost, approx, km};
+}
+function makePlan(order, lines){
+  const e = evalPlan(order, lines), d = driveFor(e.stores);
+  return {...e, drive:d.cost, approx:d.approx, km:d.km, total:e.items + d.cost, sig:e.stores.slice().sort().join('|')};
+}
+function strategies(lines){
+  const st = S.settings, P = st.primary, others = st.stores.filter(x => x !== P);
+  const base = makePlan([P], lines), cands = [base];
+  others.forEach(x => cands.push(makePlan([x], lines)));
+  others.forEach((a,i) => { cands.push(makePlan([P,a], lines)); others.slice(i+1).forEach(b => cands.push(makePlan([P,a,b], lines))); });
+  const best = cands.reduce((m,c) => c.total < m.total - 1e-9 ? c : m, base);
+  const cheap = makePlan([P, ...others], lines);
+  const known = st.stores.filter(x => kmOf(x) !== null);
+  const cl = known.length ? known.reduce((m,x) => kmOf(x) < kmOf(m) ? x : m) : P;
+  return {base, best, cheap, close: makePlan([cl], lines)};
+}
+function vShop(L){
+  const st = S.settings, lines = L.lines;
+  if(!lines.length) return '';
+  const hasData = lines.some(l => st.stores.some(x => l.f.sp[x] && l.f.sp[x].now > 0));
+  if(!hasData) return `<div class="card panel"><h2>Where to shop</h2><div class="mut">Enter this week's per-store prices in the Foods tab (pick a store, type the price). Then this recommends the best store or combination after driving.</div></div>`;
+  const R = strategies(lines);
+  const opts = [['best','Best overall',R.best]];
+  if(R.cheap.sig !== R.best.sig) opts.push(['cheap','Cheapest',R.cheap]);
+  if(R.close.sig !== R.best.sig) opts.push(['close','Closest',R.close]);
+  const pick = opts.some(o => o[0] === st.pick) ? st.pick : 'best';
+  const cur = opts.find(o => o[0] === pick)[2];
+  const save = R.base.total - cur.total;
+  let why;
+  if(pick === 'best') why = cur.sig === R.base.sig ? `Nothing beats ${esc(st.primary)} once driving is counted.` : `Saves ${money(save)} after driving compared with doing it all at ${esc(st.primary)}.`;
+  else if(pick === 'cheap') why = `Lowest grocery total, ${money(cur.items)}. Driving adds ${money(cur.drive)}, so ${cur.total > R.best.total ? money(cur.total - R.best.total) + ' more than' : 'about the same as'} the best overall pick.`;
+  else why = `The nearest store, ${kmOf(cur.stores[0]) !== null ? (2*kmOf(cur.stores[0])).toFixed(1) + ' km round trip' : 'distance not set'}. ${save > 0.005 ? 'Saves ' + money(save) + ' vs ' + esc(st.primary) + '.' : save < -0.005 ? 'Costs ' + money(-save) + ' more than ' + esc(st.primary) + '.' : ''}`;
+  let h = `<div class="card panel"><h2>Where to shop</h2>
+   <div class="chips">${opts.map(o => `<button class="chip ${o[0]===pick?'on':''}" data-act="pick" data-v="${o[0]}">${o[1]}</button>`).join('')}</div>
+   <div class="rec">${cur.stores.map(esc).join(' + ')}</div>
+   <div class="sum" style="margin-top:6px"><div><b>${money(cur.total)}</b>total</div><div><b>${money(cur.items)}</b>groceries</div><div><b>${money(cur.drive)}</b>${cur.km ? 'driving, ' + cur.km.toFixed(1) + ' km' : 'driving'}</div></div>
+   <div class="mut" style="margin-top:8px">${why}</div>`;
+  cur.stores.forEach((x,i) => {
+    const e = cur.per[x], list = e.items.slice().sort((a,b) => b.cost - a.cost);
+    h += `<div class="stop"><div class="stoph"><b>${i+1}. ${esc(x)}</b><span>${money(e.cost)}</span></div><div class="mut">${list.slice(0,4).map(it => `${fg(it.g)} ${esc(it.f.name.replace(/ \((raw|dry|drained)\)/,''))}`).join(', ')}${list.length > 4 ? ` +${list.length-4} more` : ''}</div></div>`;
+  });
+  if(cur.approx) h += `<div class="mut" style="margin-top:8px">Some distances are not set, so a flat ${money(st.trip)} is assumed for those stops. Add them in Settings, Money.</div>`;
+  return h + `</div>`;
+}
 function vCompare(L){
   const st = S.settings, top = L.lines.slice(0,3);
   if(!top.length) return '';
-  const hasData = top.some(l => st.stores.some(s => l.f.sp[s] && l.f.sp[s].now > 0));
-  let h = `<div class="card"><h2>Compare stores on your biggest items</h2>`;
-  if(!hasData){
-    return h + `<div class="mut">Enter this week's per-store prices for these items in the Foods tab (pick a store, type the price). Then this card shows where each is cheapest and whether a second stop is worth the drive.</div></div>`;
-  }
-  h += `<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th style="text-align:left">Item</th>${st.stores.map(s=>`<th style="text-align:right;padding:4px">${esc(s)}</th>`).join('')}</tr>`;
+  if(!top.some(l => st.stores.some(x => l.f.sp[x] && l.f.sp[x].now > 0))) return '';
+  let h = `<div class="card"><h2>Price check on your biggest items</h2><div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th style="text-align:left">Item</th>${st.stores.map(x=>`<th style="text-align:right;padding:4px">${esc(x)}</th>`).join('')}</tr>`;
   top.forEach(l => {
-    const ps = st.stores.map(s => priceAt(l.f, s)), mn = Math.min(...ps), mx = Math.max(...ps);
+    const ps = st.stores.map(x => priceAt(l.f, x)), mn = Math.min(...ps), mx = Math.max(...ps);
     h += `<tr style="border-top:1px dashed var(--line)"><td style="padding:6px 0">${esc(l.f.name)}<div class="mut">${l.kg.toFixed(2)} kg</div></td>${ps.map(p => `<td style="text-align:right;padding:4px;${(p===mn && p<mx)?'font-weight:700;color:var(--acc)':''}">${money(p)}</td>`).join('')}</tr>`;
   });
-  h += `</table></div>`;
-  let best = null;
-  st.stores.filter(s => s !== st.primary).forEach(s => {
-    const gain = top.reduce((t,l) => t + Math.max(0, l.kg*(priceAt(l.f, st.primary) - priceAt(l.f, s))), 0);
-    const sc = stopCost(s), net = gain - sc.cost;
-    if(!best || net > best.net) best = {s, gain, sc, net};
-  });
-  if(best){
-    const how = best.sc.km === null ? 'a flat ' + money(best.sc.cost) + ' stop (add distances in Settings for a real figure)' : `about ${best.sc.km.toFixed(1)} extra km, ${money(best.sc.cost)} in driving`;
-    if(best.net > 0) h += `<div class="warn" style="background:var(--acc2);color:var(--acc)">Adding <b>${esc(best.s)}</b> for these items saves ${money(best.gain)}. The detour is ${how}, so you come out <b>${money(best.net)}</b> ahead. Worth it.</div>`;
-    else h += `<div class="mut" style="margin-top:8px">Best second store (${esc(best.s)}) saves ${money(best.gain)} on these items, but the detour is ${how}. Stick to ${esc(st.primary)}.</div>`;
-  }
-  return h + `<div class="mut" style="margin-top:6px">Only counts prices you entered; others use your typical price.</div></div>`;
+  return h + `</table></div><div class="mut" style="margin-top:6px">Per kg. Only prices you entered count; others use your typical price.</div></div>`;
 }
 
 function allocRow(f){
@@ -645,30 +708,33 @@ function macroField(label, key, cal){
 }
 let geoStatus = '', showOther = false;
 function setStatus(t){ geoStatus = t; const el = $('#geo_status'); if(el) el.textContent = t; }
+let openSec = {};
+function acc(id, title, summary, body){
+  const o = !!openSec[id];
+  return `<div class="acc ${o?'open':''}"><button class="acc-h" data-act="sec" data-s="${id}" aria-expanded="${o}"><span class="acc-t">${title}</span><span class="acc-s">${esc(summary)}</span><svg viewBox="0 0 24 24" class="chev" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>${o ? `<div class="acc-b">${body}</div>` : ''}</div>`;
+}
 function vSettings(){
   const st = S.settings, sum = Math.round((st.pPct + st.cPct + st.fPct)*10)/10, rem = Math.round((100 - st.pPct - st.cPct)*10)/10;
-  let h = `<div class="card"><h2>Targets</h2><div class="grid">
+  const targets = `<div class="grid">
    <label class="f">Calories<input type="number" data-k="kcal" value="${st.kcal}"></label>
    <label class="f">Day variance %<input type="number" data-k="dayVar" value="${st.dayVar}"></label>
    <label class="f">Meal variance %<input type="number" data-k="mealVar" value="${st.mealVar}"></label></div>
    <div class="mut" style="margin:14px 0 6px">Macros: edit the percent or the grams and the other follows your calorie target.</div>
    <div class="grid">${macroField('Protein','pPct',4)}${macroField('Carbs','cPct',4)}${macroField('Fat','fPct',9)}</div>
    ${Math.abs(sum-100) > 0.05 ? `<div class="warn">Macros add to ${sum}%. They should total 100.${rem >= 0 ? ` <button class="s" style="margin-left:6px" data-act="fixfat">Set fat to ${rem}%</button>` : ''}</div>` : `<div class="mut" style="margin-top:8px">Total 100%</div>`}
-   <label class="row" style="margin-top:12px"><input type="checkbox" data-act="ceiling" ${st.ceiling?'checked':''}> <span>Never exceed the calorie target (variance only goes below)</span></label></div>`;
+   <label class="row" style="margin-top:12px"><input type="checkbox" data-act="ceiling" ${st.ceiling?'checked':''}> <span>Never exceed the calorie target (variance only goes below)</span></label>`;
 
-  h += `<div class="card"><h2>Meals per day</h2>`;
+  let meals = `<div class="mrow hd"><span>Meal</span><span>Size</span><span>Served</span><span></span></div>`;
   st.meals.forEach((m,i) => {
-    h += `<div class="mrow"><div class="row"><input style="flex:1" data-act="mname" data-i="${i}" value="${esc(m.name)}"><button class="x" data-act="mdel" data-i="${i}" aria-label="Remove meal">×</button></div>
-     <div class="grid2" style="margin-top:8px">
-      <label class="f">Size<select data-act="mtype" data-i="${i}">${[['big','Big meal'],['light','Light meal'],['snack','Snack']].map(o=>`<option value="${o[0]}" ${m.type===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></label>
-      <label class="f">Served<select data-act="mtemp" data-i="${i}">${[['any','Hot or cold'],['hot','Hot'],['cold','Cold']].map(o=>`<option value="${o[0]}" ${m.temp===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></label></div></div>`;
+    meals += `<div class="mrow"><input data-act="mname" data-i="${i}" value="${esc(m.name)}">
+     <select data-act="mtype" data-i="${i}">${[['big','Big'],['light','Light'],['snack','Snack']].map(o=>`<option value="${o[0]}" ${m.type===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
+     <select data-act="mtemp" data-i="${i}">${[['any','Any'],['hot','Hot'],['cold','Cold']].map(o=>`<option value="${o[0]}" ${m.temp===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
+     <button class="x" data-act="mdel" data-i="${i}" aria-label="Remove meal">×</button></div>`;
   });
-  h += `<div style="margin-top:8px"><button class="g" data-act="madd">+ Add meal</button></div><div class="mut" style="margin-top:8px">Size sets each meal's share of the day's calories. Cooking method is chosen when you tap Find a recipe.</div></div>`;
+  meals += `<div style="margin-top:8px"><button class="g" data-act="madd">+ Add meal</button></div><div class="mut" style="margin-top:8px">Size sets each meal's share of the day's calories. Cooking method is chosen when you tap Find a recipe.</div>`;
 
-  // money
   const avail = PRESET_STORES.filter(x => !st.stores.includes(x));
-  h += `<div class="card"><h2>Money</h2>
-   <div class="grid2">
+  const money_ = `<div class="grid2">
     <label class="f">Weekly budget $ (0 = none)<input type="number" data-k="budget" value="${st.budget}"></label>
     <label class="f">Driving cost $ per km<input type="number" step="0.01" data-k="perKm" value="${st.perKm}"></label></div>
    <div class="f2" style="margin-top:16px">Stores you shop at</div>
@@ -692,16 +758,20 @@ function vSettings(){
       ${isP ? '<span class="mut">primary</span>' : `<input type="number" step="0.1" inputmode="decimal" data-act="sdet" data-s="${esc(x)}" value="${info.detour ?? ''}" placeholder="${info.km!=null?(2*info.km).toFixed(1):'—'}">`}
       <span>${isP ? '' : (sc.km===null ? '<span class="mut">'+money(st.trip)+' flat</span>' : money(sc.cost))}</span></div>`;
    }).join('')}</div>
-   <div class="mut" style="margin-top:8px">Extra km is the detour added when this store is a second stop (primary, then here, then home). If blank, a separate round trip from home is assumed. Stop cost = extra km × $ per km.</div></div>`;
+   <div class="mut" style="margin-top:8px">Extra km is the detour added when this store is a second stop (primary, then here, then home). If blank, a separate round trip from home is assumed. Stop cost = extra km × $ per km.</div>`;
 
-  h += `<div class="card"><h2>Google Sheet (optional)</h2>
-   <label class="f">Apps Script web app URL<input data-act="sheet" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(st.sheetUrl)}"></label>
+  const sheet = `<label class="f">Apps Script web app URL<input data-act="sheet" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(st.sheetUrl)}"></label>
    <div class="mut" style="margin:8px 0">Leave blank to use the app on its own (data stays in this browser). When set, each generation and each price log is added as a row.</div>
    <details><summary>How to set it up</summary><div class="mut" style="margin-top:8px">1. In your Sheet: Extensions, Apps Script. Paste this, save.<br>2. Deploy, New deployment, Web app. Execute as: Me. Who has access: Anyone. Copy the URL here.</div><pre>${esc(SCRIPT)}</pre><button class="g" data-act="copyscript">Copy script</button></details>
    <div class="row" style="margin-top:12px"><button class="g" data-act="sendhist">Send existing history to Sheet</button><button class="g" data-act="csvplans">Export plans CSV</button><button class="g" data-act="csvprices">Export prices CSV</button></div>
-   <div class="mut" style="margin-top:6px">${S.history.length} plans and ${S.log.length} price logs saved here.</div></div>`;
-  h += `<div class="card"><button class="g" data-act="reset">Reset everything</button></div>`;
-  return h;
+   <div class="mut" style="margin-top:6px">${S.history.length} plans and ${S.log.length} price logs saved here.</div>
+   <div style="margin-top:16px"><button class="g" data-act="reset">Reset everything</button></div>`;
+
+  const mealNames = st.meals.map(m => m.name).join(', ');
+  return acc('targets', 'Targets', `${st.kcal} kcal · ${st.pPct}/${st.cPct}/${st.fPct}`, targets)
+       + acc('meals', 'Meals', `${st.meals.length} per day: ${mealNames}`, meals)
+       + acc('money', 'Money & stores', `${st.primary} · ${st.stores.length} stores`, money_)
+       + acc('sheet', 'Google Sheet', st.sheetUrl ? 'Connected' : 'Not connected', sheet);
 }
 
 /* ---------- distances (OpenStreetMap: Nominatim, Overpass, OSRM) ---------- */
@@ -956,6 +1026,8 @@ document.addEventListener('click', async e => {
     case 'pickaddr': { const x = homeSug[+el.dataset.i]; if(x){ S.settings.home = {text:x.label, lat:x.lat, lon:x.lon}; homeSug = []; save(); setStatus('Address set. Tap Find store distances.'); render(); } break; }
     case 'finddist': findDistances(); break;
     case 'fixfat': { const st = S.settings; st.fPct = Math.max(0, Math.round((100 - st.pPct - st.cPct)*10)/10); save(); render(); break; }
+    case 'pick': S.settings.pick = el.dataset.v; save(); render(); break;
+    case 'sec': openSec[el.dataset.s] = !openSec[el.dataset.s]; render(); break;
     case 'swap': swapModal(+el.dataset.d, +el.dataset.m); break;
     case 'recipe': recipeModal(+el.dataset.d, +el.dataset.m); break;
     case 'rmethod': S.settings.method = el.dataset.v; save(); recipeModal(recipeCtx.di, recipeCtx.mi); break;
