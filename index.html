@@ -722,7 +722,7 @@ function statusHtml(t){ if(!t) return ''; const busy = /\.\.\.$/.test(t); return
 function setStatus(t){ geoStatus = t; const el = $('#geo_status'); if(el) el.innerHTML = statusHtml(t); }
 function mapsOpen(name){
   const st = S.settings, info = st.storeInfo[name]; if(!info || info.lat == null) return;
-  const dest = info.lat + ',' + info.lon, h = st.home, org = h.lat != null ? h.lat + ',' + h.lon : '';
+  const dest = info.addr ? encodeURIComponent(name + ', ' + info.addr) : info.lat + ',' + info.lon, h = st.home, org = h.lat != null ? h.lat + ',' + h.lon : '';
   const web = 'https://www.google.com/maps/dir/?api=1&destination=' + dest + (org ? '&origin=' + org : '') + '&travelmode=driving';
   if(/iPhone|iPad|iPod/.test(navigator.userAgent)){
     const t = Date.now();
@@ -802,7 +802,8 @@ const hav = (a,b) => { const R=6371, r=x=>x*Math.PI/180, dl=r(b.lat-a.lat), dn=r
   const q = Math.sin(dl/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(q)); };
 const PHOTON = 'https://photon.komoot.io';
 async function jfetch(url, opt){
-  const r = await fetch(url, opt);
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 14000);
+  let r; try{ r = await fetch(url, {...(opt||{}), signal: ac.signal}); }catch(e){ throw new Error(e.name === 'AbortError' ? 'timed out' : e.message); }finally{ clearTimeout(tm); }
   if(!r.ok) throw new Error('HTTP ' + r.status);
   const t = await r.text();
   try{ return JSON.parse(t); }catch(e){ throw new Error('bad response'); }
@@ -850,33 +851,37 @@ function osmAddr(t){
 }
 async function nearestBranch(name, home){
   const rx = new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-  const rank = pts => {
-    const seen = new Set();
-    const arr = pts.map(pt => ({...pt, d: hav(home, pt)})).filter(x => x.d <= 60).sort((a,b) => a.d - b.d)
-      .filter(x => { const k = x.lat.toFixed(4) + ',' + x.lon.toFixed(4); if(seen.has(k)) return false; seen.add(k); return true; });
-    return arr.length ? {...arr[0], alts: arr.slice(0, 6)} : null;
-  };
-  const errs = []; let reached = false, best = null;
-  try{
-    const j = await jfetch(`${PHOTON}/api/?q=${encodeURIComponent(name)}&lat=${home.lat}&lon=${home.lon}&limit=40&osm_tag=shop&lang=en`);
-    reached = true;
-    best = rank((j.features || []).filter(f => (!f.properties.countrycode || f.properties.countrycode === 'CA') && rx.test(f.properties.name || ''))
-      .map(f => ({lat:f.geometry.coordinates[1], lon:f.geometry.coordinates[0], addr:addrLabel(f.properties, true)})));
-  }catch(e){ errs.push('search ' + e.message); }
-  if(best) return best;
   const n = name.replace(/[.*+?^${}()|[\]\\"]/g, '\\$&');
-  const around = `(around:30000,${home.lat},${home.lon})`, shop = '["shop"~"supermarket|wholesale|department_store|variety_store|general|convenience"]';
-  const q = `[out:json][timeout:20];(nwr${shop}["name"~"^${n}",i]${around};nwr${shop}["brand"~"^${n}",i]${around};);out center 60;`;
-  for(const url of OVERPASS){
-    try{
-      const j = await jfetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data=' + encodeURIComponent(q)});
-      reached = true;
-      best = rank((j.elements || []).map(e => ({lat: e.lat ?? (e.center && e.center.lat), lon: e.lon ?? (e.center && e.center.lon), addr: osmAddr(e.tags)})).filter(pt => pt.lat != null));
-      break;
-    }catch(e){ errs.push(e.message); }
-  }
-  if(!best && !reached) throw new Error(errs.join(', ').slice(0, 70));
-  return best;
+  const pts = [], errs = [];
+  const fromPhoton = async () => {
+    const j = await jfetch(`${PHOTON}/api/?q=${encodeURIComponent(name)}&lat=${home.lat}&lon=${home.lon}&limit=40&osm_tag=shop&lang=en`);
+    (j.features || []).filter(f => (!f.properties.countrycode || f.properties.countrycode === 'CA') && rx.test(f.properties.name || ''))
+      .forEach(f => pts.push({lat:f.geometry.coordinates[1], lon:f.geometry.coordinates[0], addr:addrLabel(f.properties, true)}));
+  };
+  const fromOverpass = async () => {
+    const around = `(around:30000,${home.lat},${home.lon})`, shop = '["shop"~"supermarket|wholesale|department_store|variety_store|general|convenience"]';
+    const q = `[out:json][timeout:20];(nwr${shop}["name"~"^${n}",i]${around};nwr${shop}["brand"~"^${n}",i]${around};);out center 80;`;
+    let last;
+    for(const url of OVERPASS){
+      try{
+        const j = await jfetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data=' + encodeURIComponent(q)});
+        (j.elements || []).forEach(e => { const lat = e.lat ?? (e.center && e.center.lat), lon = e.lon ?? (e.center && e.center.lon); if(lat != null) pts.push({lat, lon, addr:osmAddr(e.tags)}); });
+        return;
+      }catch(e){ last = e; }
+    }
+    throw last;
+  };
+  const res = await Promise.allSettled([fromPhoton(), fromOverpass()]);
+  res.forEach((r, k) => { if(r.status === 'rejected') errs.push((k ? 'Overpass ' : 'Photon ') + r.reason.message); });
+  if(res.every(r => r.status === 'rejected')) throw new Error(errs.join(', ').slice(0, 70));
+  const rich = a => (/^\d/.test(a || '') ? 2 : 0) + (a ? 1 : 0);
+  const arr = pts.map(pt => ({...pt, d: hav(home, pt)})).filter(x => x.d <= 60).sort((a,b) => a.d - b.d);
+  const out = [];
+  arr.forEach(x => {
+    const dup = out.find(o => hav(o, x) < 0.15);
+    if(!dup) out.push(x); else if(rich(x.addr) > rich(dup.addr)) { dup.addr = x.addr; }
+  });
+  return out.length ? {...out[0], alts: out.slice(0, 6)} : null;
 }
 async function drive(a, b){
   const j = await jfetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`);
