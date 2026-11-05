@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#4f9f72"/><stop offset="1" stop-color="#1a5035"/></linearGradient>
+<linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffdf6"/><stop offset="1" stop-color="#efe6d0"/></linearGradient>
+<linearGradient id="head" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9764a"/><stop offset="1" stop-color="#b85a34"/></linearGradient>
+<radialGradient id="plate" cx="0.38" cy="0.32" r="0.9"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6dcc3"/></radialGradient>
+<linearGradient id="veg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cc47a"/><stop offset="1" stop-color="#3f8f4f"/></linearGradient>
+<linearGradient id="carb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3cd6a"/><stop offset="1" stop-color="#d9a238"/></linearGradient>
+<linearGradient id="prot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d98a62"/><stop offset="1" stop-color="#a9552f"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfc8b4"/></linearGradient>
+<linearGradient id="ring" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f4efe2"/><stop offset="1" stop-color="#b9b19c"/></linearGradient>
+<filter id="sh" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="12" stdDeviation="11" flood-color="#082a18" flood-opacity=".38"/></filter>
+<filter id="sh2" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#3a2a14" flood-opacity=".28"/></filter>
+<clipPath id="cardclip"><rect x="92" y="108" width="328" height="304" rx="40"/></clipPath>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<ellipse cx="256" cy="-30" rx="430" ry="250" fill="#fff" opacity=".10"/>
+<!-- calendar card -->
+<g filter="url(#sh)"><rect x="92" y="108" width="328" height="304" rx="40" fill="url(#card)"/></g>
+<g clip-path="url(#cardclip)"><rect x="92" y="108" width="328" height="74" fill="url(#head)"/><rect x="92" y="108" width="328" height="30" fill="#fff" opacity=".14"/></g>
+<rect x="92.5" y="108.5" width="327" height="303" rx="39.5" fill="none" stroke="#e3d8bd" stroke-width="2"/>
+<!-- rings -->
+<g filter="url(#sh2)"><rect x="162" y="84" width="26" height="62" rx="13" fill="url(#ring)"/><rect x="324" y="84" width="26" height="62" rx="13" fill="url(#ring)"/></g>
+<rect x="169" y="92" width="6" height="30" rx="3" fill="#fff" opacity=".7"/><rect x="331" y="92" width="6" height="30" rx="3" fill="#fff" opacity=".7"/>
+<!-- plate -->
+<g filter="url(#sh2)"><circle cx="256" cy="292" r="92" fill="url(#plate)"/></g>
+<circle cx="256" cy="292" r="92" fill="none" stroke="#d6cab0" stroke-width="3"/>
+<circle cx="256" cy="292" r="72" fill="#f6efdc"/>
+<circle cx="256" cy="292" r="72" fill="none" stroke="#e0d4b8" stroke-width="2.5"/>
+<g stroke="#fbf6e8" stroke-width="5" stroke-linejoin="round">
+<path d="M256 292 L256.0 232.0 A60 60 0 0 1 308.0 322.0 Z" fill="url(#veg)"/>
+<path d="M256 292 L308.0 322.0 A60 60 0 0 1 204.0 322.0 Z" fill="url(#carb)"/>
+<path d="M256 292 L204.0 322.0 A60 60 0 0 1 256.0 232.0 Z" fill="url(#prot)"/>
+</g>
+<ellipse cx="236" cy="258" rx="26" ry="12" transform="rotate(-30 236 258)" fill="#fff" opacity=".28"/>
+<ellipse cx="300" cy="316" rx="20" ry="9" transform="rotate(30 300 316)" fill="#fff" opacity=".28"/>
+<ellipse cx="206" cy="304" rx="14" ry="22" transform="rotate(35 206 304)" fill="#fff" opacity=".22"/>
+<!-- fork -->
+<g filter="url(#sh2)">
+<rect x="121" y="210" width="9" height="56" rx="4.5" fill="url(#steel)"/><rect x="133" y="210" width="9" height="56" rx="4.5" fill="url(#steel)"/><rect x="145" y="210" width="9" height="56" rx="4.5" fill="url(#steel)"/>
+<rect x="121" y="246" width="33" height="34" rx="16" fill="url(#steel)"/>
+<rect x="131" y="270" width="14" height="122" rx="7" fill="url(#steel)"/>
+</g>
+<!-- knife -->
+<g filter="url(#sh2)">
+<path d="M372 214 C396 220 404 262 394 296 L372 296 Z" fill="url(#steel)"/>
+<rect x="372" y="290" width="14" height="102" rx="7" fill="url(#steel)"/>
+</g>
+</svg>
