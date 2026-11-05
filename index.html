@@ -127,6 +127,9 @@ details summary{cursor:pointer;color:var(--acc);font-weight:600;font-size:14px}
 .srow.hd{border-top:0;font-size:11px;color:var(--mut);font-weight:600;padding-top:0;align-items:end}
 .srow input{width:100%;padding:8px 6px;text-align:right}
 .srow .sn small{display:block;font-size:11px;color:var(--mut)}
+.sug{border:1px solid var(--line);border-radius:14px;background:var(--paper);margin-top:6px;overflow:hidden;box-shadow:0 10px 20px -14px var(--shadow)}
+.sug button{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px dashed var(--line);padding:12px 14px;font:inherit;font-size:14px;color:var(--ink);cursor:pointer}
+.sug button:first-child{border-top:0}
 </style>
 </head>
 <body>
@@ -675,10 +678,11 @@ function vSettings(){
    <label class="f" style="margin-top:12px">Primary store (where most of the shop happens)<select data-k="primary" data-str="1">${st.stores.map(x=>`<option ${x===st.primary?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
 
    <div class="f2" style="margin-top:18px">Home</div>
-   <input id="home_txt" data-act="home" placeholder="Address or postal code" value="${esc(st.home.text)}" style="width:100%;margin-top:4px">
+   <input id="home_txt" data-act="home" autocomplete="off" placeholder="Start typing your address or postal code" value="${esc(st.home.text)}" style="width:100%;margin-top:4px">
+   <div id="home_sug"></div>
    <div class="row" style="margin-top:8px"><button class="g" data-act="homeloc">Use my location</button><button class="b" style="padding:9px 14px;font-size:14px" data-act="finddist">Find store distances</button></div>
    <div id="geo_status" class="mut" style="margin-top:8px">${esc(geoStatus)}</div>
-   <div class="mut" style="margin-top:6px">Finds your nearest branch of each store and the driving distance. Uses free OpenStreetMap services, so your address or location is sent to them. Everything is editable below.</div>
+   <div class="mut" style="margin-top:6px">Finds your nearest branch of each store and the driving distance. Uses free OpenStreetMap-based services (Photon, Overpass, OSRM), so what you type and your location are sent to them. Everything is editable below.</div>
 
    <div style="margin-top:14px;overflow:auto"><div class="srow hd"><span>Store</span><span>From home km</span><span>Extra km as 2nd stop</span><span>Stop cost</span></div>
    ${st.stores.map(x => {
@@ -703,32 +707,81 @@ function vSettings(){
 /* ---------- distances (OpenStreetMap: Nominatim, Overpass, OSRM) ---------- */
 const hav = (a,b) => { const R=6371, r=x=>x*Math.PI/180, dl=r(b.lat-a.lat), dn=r(b.lon-a.lon);
   const q = Math.sin(dl/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(q)); };
-async function geocode(q){
-  const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&q=' + encodeURIComponent(q));
-  const j = await r.json();
-  if(!j.length) throw new Error('address not found');
-  return {lat:+j[0].lat, lon:+j[0].lon};
+const PHOTON = 'https://photon.komoot.io';
+async function jfetch(url, opt){
+  const r = await fetch(url, opt);
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  const t = await r.text();
+  try{ return JSON.parse(t); }catch(e){ throw new Error('bad response'); }
 }
+function addrLabel(p){
+  const parts = [];
+  if(p.name && p.name !== p.street) parts.push(p.name);
+  if(p.street) parts.push((p.housenumber ? p.housenumber + ' ' : '') + p.street);
+  const city = p.city || p.town || p.village || p.county; if(city) parts.push(city);
+  if(p.state) parts.push(p.state);
+  if(p.postcode) parts.push(p.postcode);
+  return parts.join(', ');
+}
+async function photonSearch(q, bias){
+  let url = `${PHOTON}/api/?q=${encodeURIComponent(q)}&limit=8&lang=en`;
+  if(bias) url += `&lat=${bias.lat}&lon=${bias.lon}`;
+  const j = await jfetch(url);
+  return (j.features || []).filter(f => !f.properties.countrycode || f.properties.countrycode === 'CA').map(f => ({
+    label: addrLabel(f.properties), lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0]
+  })).filter(x => x.label);
+}
+async function geocode(q){
+  try{ const r = await photonSearch(q, {lat:43.65, lon:-79.38}); if(r.length) return r[0]; }catch(e){}
+  const j = await jfetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&q=' + encodeURIComponent(q));
+  if(!j.length) throw new Error('address not found');
+  return {lat:+j[0].lat, lon:+j[0].lon, label:q};
+}
+async function reverseGeocode(lat, lon){
+  try{
+    const j = await jfetch(`${PHOTON}/reverse?lat=${lat}&lon=${lon}&lang=en`);
+    const f = (j.features || [])[0];
+    if(f){ const l = addrLabel(f.properties); if(l) return l; }
+  }catch(e){}
+  try{
+    const j = await jfetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+    if(j.display_name) return j.display_name;
+  }catch(e){}
+  return `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+}
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
 async function nearestBranch(name, home){
+  const rx = new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const pick = pts => { let best = null; pts.forEach(pt => { const d = hav(home, pt); if(d <= 60 && (!best || d < best.d)) best = {...pt, d}; }); return best; };
+  const errs = []; let reached = false, best = null;
+  try{
+    const j = await jfetch(`${PHOTON}/api/?q=${encodeURIComponent(name)}&lat=${home.lat}&lon=${home.lon}&limit=40&osm_tag=shop&lang=en`);
+    reached = true;
+    best = pick((j.features || []).filter(f => (!f.properties.countrycode || f.properties.countrycode === 'CA') && rx.test(f.properties.name || '')).map(f => ({lat:f.geometry.coordinates[1], lon:f.geometry.coordinates[0]})));
+  }catch(e){ errs.push('search ' + e.message); }
+  if(best) return best;
   const n = name.replace(/[.*+?^${}()|[\]\\"]/g, '\\$&');
-  const around = `(around:40000,${home.lat},${home.lon})`, shop = '["shop"~"supermarket|wholesale|department_store|variety_store|general|convenience"]';
-  const q = `[out:json][timeout:25];(nwr${shop}["name"~"^${n}",i]${around};nwr${shop}["brand"~"^${n}",i]${around};);out center 60;`;
-  const r = await fetch('https://overpass-api.de/api/interpreter', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data=' + encodeURIComponent(q)});
-  const j = await r.json();
-  let best = null;
-  (j.elements || []).forEach(e => {
-    const pt = {lat: e.lat ?? (e.center && e.center.lat), lon: e.lon ?? (e.center && e.center.lon)};
-    if(pt.lat == null) return;
-    const d = hav(home, pt);
-    if(!best || d < best.d) best = {...pt, d};
-  });
+  const around = `(around:30000,${home.lat},${home.lon})`, shop = '["shop"~"supermarket|wholesale|department_store|variety_store|general|convenience"]';
+  const q = `[out:json][timeout:20];(nwr${shop}["name"~"^${n}",i]${around};nwr${shop}["brand"~"^${n}",i]${around};);out center 60;`;
+  for(const url of OVERPASS){
+    try{
+      const j = await jfetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data=' + encodeURIComponent(q)});
+      reached = true;
+      best = pick((j.elements || []).map(e => ({lat: e.lat ?? (e.center && e.center.lat), lon: e.lon ?? (e.center && e.center.lon)})).filter(pt => pt.lat != null));
+      break;
+    }catch(e){ errs.push(e.message); }
+  }
+  if(!best && !reached) throw new Error(errs.join(', ').slice(0, 70));
   return best;
 }
 async function drive(a, b){
-  const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`);
-  const j = await r.json();
+  const j = await jfetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`);
   if(j.code !== 'Ok' || !j.routes || !j.routes.length) throw new Error('no route');
   return j.routes[0].distance / 1000;
+}
+async function driveKm(a, b){
+  try{ return {km: await drive(a, b), est:false}; }
+  catch(e){ return {km: hav(a, b) * 1.3, est:true}; }
 }
 async function recomputeDetours(){
   const st = S.settings, P = st.storeInfo[st.primary];
@@ -737,7 +790,8 @@ async function recomputeDetours(){
     if(name === st.primary) continue;
     const I = st.storeInfo[name];
     if(!I || I.lat == null || I.km == null) continue;
-    try{ const d = await drive(P, I); I.detour = +Math.max(0, d + I.km - P.km).toFixed(1); }catch(e){}
+    const d = await driveKm(P, I);
+    I.detour = +Math.max(0, d.km + I.km - P.km).toFixed(1);
     save();
   }
 }
@@ -745,30 +799,53 @@ async function findDistances(){
   const st = S.settings, h = st.home;
   if(!h.text && h.lat == null){ toast('Enter your address or postal code first'); return; }
   try{
-    if(h.lat == null){ setStatus('Locating home...'); const g = await geocode(h.text); h.lat = g.lat; h.lon = g.lon; save(); }
+    if(h.lat == null){ setStatus('Locating home...'); const g = await geocode(h.text); h.lat = g.lat; h.lon = g.lon; if(g.label) h.text = g.label; save(); }
     const home = {lat:h.lat, lon:h.lon};
+    let fails = 0;
     for(const name of st.stores){
       setStatus(`Finding nearest ${name}...`);
       const info = st.storeInfo[name] = st.storeInfo[name] || {};
       try{
         const b = await nearestBranch(name, home);
-        if(b){ info.lat = b.lat; info.lon = b.lon; info.km = +(await drive(home, b)).toFixed(1); info.note = ''; }
-        else info.note = 'No branch found nearby';
-      }catch(e){ info.note = 'Lookup failed'; }
+        if(b){
+          info.lat = b.lat; info.lon = b.lon;
+          const d = await driveKm(home, b);
+          info.km = +d.km.toFixed(1); info.note = d.est ? 'Estimated (straight line x 1.3)' : '';
+        } else info.note = 'No branch found nearby';
+      }catch(e){ info.note = 'Lookup failed: ' + e.message; fails++; }
       save();
+      await new Promise(r => setTimeout(r, 250));
     }
     setStatus('Working out detours...');
     await recomputeDetours();
-    setStatus('Done. Check the numbers and edit any that look off.');
+    setStatus(fails ? `Done, but ${fails} lookup${fails>1?'s':''} failed. See the notes below, or type distances in by hand.` : 'Done. Check the numbers and edit any that look off.');
   }catch(e){ setStatus('Could not finish (' + e.message + '). You can type distances in by hand.'); }
   if(view === 'settings') render();
 }
 function useMyLocation(){
   if(!navigator.geolocation){ toast('Location is not available here'); return; }
-  navigator.geolocation.getCurrentPosition(pos => {
-    const h = S.settings.home; h.lat = pos.coords.latitude; h.lon = pos.coords.longitude; if(!h.text) h.text = 'My location';
-    save(); render(); toast('Home set to your current location');
-  }, () => toast('Could not get your location'), {timeout:10000});
+  setStatus('Getting your location...');
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const h = S.settings.home;
+    h.lat = pos.coords.latitude; h.lon = pos.coords.longitude;
+    setStatus('Looking up the address...');
+    h.text = await reverseGeocode(h.lat, h.lon);
+    save(); homeSug = []; setStatus('Check that this is your home address. Edit it if not.'); render();
+  }, () => { setStatus(''); toast('Could not get your location'); }, {timeout:10000});
+}
+/* address suggestions as you type */
+let homeSug = [], sugTimer = null;
+function renderSug(){
+  const el = $('#home_sug'); if(!el) return;
+  el.innerHTML = homeSug.length ? `<div class="sug">${homeSug.map((x,i) => `<button data-act="pickaddr" data-i="${i}">${esc(x.label)}</button>`).join('')}</div>` : '';
+}
+function onHomeInput(v){
+  clearTimeout(sugTimer);
+  if(v.trim().length < 3){ homeSug = []; renderSug(); return; }
+  sugTimer = setTimeout(async () => {
+    try{ homeSug = await photonSearch(v.trim(), {lat:43.65, lon:-79.38}); }catch(e){ homeSug = []; }
+    renderSug();
+  }, 350);
 }
 function addStore(name){
   name = (name||'').trim(); const st = S.settings;
@@ -876,6 +953,7 @@ document.addEventListener('click', async e => {
     case 'rmstore': removeStore(el.dataset.s); break;
     case 'addother': addStore($('#store_other').value); break;
     case 'homeloc': useMyLocation(); break;
+    case 'pickaddr': { const x = homeSug[+el.dataset.i]; if(x){ S.settings.home = {text:x.label, lat:x.lat, lon:x.lon}; homeSug = []; save(); setStatus('Address set. Tap Find store distances.'); render(); } break; }
     case 'finddist': findDistances(); break;
     case 'fixfat': { const st = S.settings; st.fPct = Math.max(0, Math.round((100 - st.pPct - st.cPct)*10)/10); save(); render(); break; }
     case 'swap': swapModal(+el.dataset.d, +el.dataset.m); break;
@@ -953,7 +1031,10 @@ document.addEventListener('change', e => {
   if(a === 'sprice'){ const f = foodById(el.dataset.id), v = parseFloat(el.value); if(v > 0) f.sp[storeSel] = {now:v, at:today()}; else delete f.sp[storeSel]; save(); }
   if(a === 'sheet'){ st.sheetUrl = el.value.trim(); save(); }
 });
-document.addEventListener('input', e => { if(e.target.id === 'rc_note'){ recipeNote = e.target.value; updateLinks(); } });
+document.addEventListener('input', e => {
+  if(e.target.id === 'rc_note'){ recipeNote = e.target.value; updateLinks(); }
+  if(e.target.id === 'home_txt') onHomeInput(e.target.value);
+});
 render();
 </script>
 </body>
