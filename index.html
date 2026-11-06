@@ -849,12 +849,19 @@ function osmAddr(t){
   const street = ((t['addr:housenumber'] ? t['addr:housenumber'] + ' ' : '') + (t['addr:street'] || '')).trim();
   return [street, t['addr:city'], t['addr:postcode']].filter(Boolean).join(', ');
 }
-async function nearestBranch(name, home){
+async function nearestBranch(name, home, homeText){
   const rx = new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
   const n = name.replace(/[.*+?^${}()|[\]\\"]/g, '\\$&');
   const pts = [], errs = [];
   const fromPhoton = async () => {
     const j = await jfetch(`${PHOTON}/api/?q=${encodeURIComponent(name)}&lat=${home.lat}&lon=${home.lon}&limit=40&osm_tag=shop&lang=en`);
+    (j.features || []).filter(f => (!f.properties.countrycode || f.properties.countrycode === 'CA') && rx.test(f.properties.name || ''))
+      .forEach(f => pts.push({lat:f.geometry.coordinates[1], lon:f.geometry.coordinates[0], addr:addrLabel(f.properties, true)}));
+  };
+  const city = (homeText || '').split(',').map(x => x.trim()).filter(x => x && !/\d/.test(x))[1] || '';
+  const fromPhotonCity = async () => {
+    if(!city) return;
+    const j = await jfetch(`${PHOTON}/api/?q=${encodeURIComponent(name + ' ' + city)}&lat=${home.lat}&lon=${home.lon}&limit=40&osm_tag=shop&lang=en`);
     (j.features || []).filter(f => (!f.properties.countrycode || f.properties.countrycode === 'CA') && rx.test(f.properties.name || ''))
       .forEach(f => pts.push({lat:f.geometry.coordinates[1], lon:f.geometry.coordinates[0], addr:addrLabel(f.properties, true)}));
   };
@@ -871,8 +878,9 @@ async function nearestBranch(name, home){
     }
     throw last;
   };
-  const res = await Promise.allSettled([fromPhoton(), fromOverpass()]);
-  res.forEach((r, k) => { if(r.status === 'rejected') errs.push((k ? 'Overpass ' : 'Photon ') + r.reason.message); });
+  const res = await Promise.allSettled([fromPhoton(), fromOverpass(), fromPhotonCity()]);
+  res.forEach((r, k) => { if(r.status === 'rejected') errs.push(['Photon ', 'Overpass ', 'Photon '][k] + r.reason.message); });
+  const partial = res[1].status === 'rejected';
   if(res.every(r => r.status === 'rejected')) throw new Error(errs.join(', ').slice(0, 70));
   const rich = a => (/^\d/.test(a || '') ? 2 : 0) + (a ? 1 : 0);
   const arr = pts.map(pt => ({...pt, d: hav(home, pt)})).filter(x => x.d <= 60).sort((a,b) => a.d - b.d);
@@ -881,7 +889,13 @@ async function nearestBranch(name, home){
     const dup = out.find(o => hav(o, x) < 0.15);
     if(!dup) out.push(x); else if(rich(x.addr) > rich(dup.addr)) { dup.addr = x.addr; }
   });
-  return out.length ? {...out[0], alts: out.slice(0, 6)} : null;
+  if(!out.length) return null;
+  // compare real driving distance for the nearest few, not just straight line
+  const top = out.slice(0, 4);
+  await Promise.all(top.map(async t => { try{ const d = await driveKm(home, t); t.km = d.km; t.est = d.est; }catch(e){ t.km = t.d * 1.3; t.est = true; } }));
+  top.sort((a,b) => a.km - b.km);
+  const alts = top.concat(out.slice(4, 6));
+  return {...top[0], alts, partial};
 }
 async function drive(a, b){
   const j = await jfetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`);
@@ -915,11 +929,11 @@ async function findDistances(){
       setStatus(`Finding nearest ${name}...`);
       const info = st.storeInfo[name] = st.storeInfo[name] || {};
       try{
-        const b = await nearestBranch(name, home);
+        const b = await nearestBranch(name, home, h.text);
         if(b){
-          info.lat = b.lat; info.lon = b.lon; info.addr = b.addr || ''; info.alts = (b.alts || []).map(a => ({lat:a.lat, lon:a.lon, addr:a.addr}));
+          info.lat = b.lat; info.lon = b.lon; info.addr = b.addr || ''; info.alts = (b.alts || []).map(a => ({lat:a.lat, lon:a.lon, addr:a.addr, km:a.km != null ? +a.km.toFixed(1) : null}));
           const d = await driveKm(home, b);
-          info.km = +d.km.toFixed(1); info.note = d.est ? 'Estimated (straight line x 1.3)' : '';
+          info.km = +d.km.toFixed(1); info.note = b.partial ? 'Branch list may be incomplete (map data busy). Tap Find again to double-check.' : (d.est ? 'Estimated (straight line x 1.3)' : '');
         } else info.note = 'No branch found nearby';
       }catch(e){ info.note = 'Lookup failed: ' + e.message; fails++; }
       save();
@@ -962,7 +976,7 @@ function storeLocModal(name){
   const st = S.settings, info = st.storeInfo[name] || {}, home = st.home.lat != null ? {lat:st.home.lat, lon:st.home.lon} : null;
   const alts = info.alts || [];
   openModal(`<h3>Location for ${esc(name)}</h3>
-   ${alts.length ? `<div class="f2">Nearby branches</div><div class="sug">${alts.map((a,i) => `<button data-act="pickalt" data-i="${i}">${esc(a.addr || 'Address not listed')}${home ? `<span class="mut"> · ${hav(home, a).toFixed(1)} km away</span>` : ''}</button>`).join('')}</div>` : '<div class="mut">No nearby branches saved. Search below.</div>'}
+   ${alts.length ? `<div class="f2">Nearby branches</div><div class="sug">${alts.map((a,i) => `<button data-act="pickalt" data-i="${i}">${esc(a.addr || 'Address not listed')}${home ? `<span class="mut"> · ${a.km != null ? a.km.toFixed(1) + ' km drive' : hav(home, a).toFixed(1) + ' km away'}</span>` : ''}</button>`).join('')}</div>` : '<div class="mut">No nearby branches saved. Search below.</div>'}
    <label class="f" style="margin-top:14px">Search another address or branch<input id="sl_q" autocomplete="off" placeholder="Street, area or ${esc(name)} + neighbourhood"></label>
    <div id="sl_sug"></div>
    <div class="row" style="margin-top:14px"><button class="g" data-act="mclose">Close</button></div>`);
