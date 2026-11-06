@@ -817,8 +817,8 @@ function addrLabel(p, noName){
   if(p.postcode) parts.push(p.postcode);
   return parts.join(', ');
 }
-async function photonSearch(q, bias){
-  let url = `${PHOTON}/api/?q=${encodeURIComponent(q)}&limit=8&lang=en`;
+async function photonSearch(q, bias, limit){
+  let url = `${PHOTON}/api/?q=${encodeURIComponent(q)}&limit=${limit || 8}&lang=en`;
   if(bias) url += `&lat=${bias.lat}&lon=${bias.lon}`;
   const j = await jfetch(url);
   return (j.features || []).filter(f => !f.properties.countrycode || f.properties.countrycode === 'CA').map(f => ({
@@ -958,7 +958,7 @@ function onHomeInput(v){
 }
 let locStore = null, locSug = [], locTimer = null;
 function storeLocModal(name){
-  locStore = name; locSug = [];
+  locStore = name; locSug = []; locMsg = ''; locTok++;
   const st = S.settings, info = st.storeInfo[name] || {}, home = st.home.lat != null ? {lat:st.home.lat, lon:st.home.lon} : null;
   const alts = info.alts || [];
   openModal(`<h3>Location for ${esc(name)}</h3>
@@ -967,16 +967,27 @@ function storeLocModal(name){
    <div id="sl_sug"></div>
    <div class="row" style="margin-top:14px"><button class="g" data-act="mclose">Close</button></div>`);
 }
+let locMsg = '', locTok = 0;
 function renderLocSug(){
   const el = $('#sl_sug'); if(!el) return;
-  el.innerHTML = locSug.length ? `<div class="sug">${locSug.map((x,i) => `<button data-act="pickloc" data-i="${i}">${esc(x.label)}</button>`).join('')}</div>` : '';
+  const home = S.settings.home.lat != null ? {lat:S.settings.home.lat, lon:S.settings.home.lon} : null;
+  el.innerHTML = locSug.length ? `<div class="sug">${locSug.map((x,i) => `<button data-act="pickloc" data-i="${i}">${esc(x.label)}${home ? `<span class="mut"> · ${hav(home, x).toFixed(1)} km away</span>` : ''}</button>`).join('')}</div>` : (locMsg ? `<div class="mut" style="margin-top:8px">${esc(locMsg)}</div>` : '');
 }
 function onLocInput(v){
   clearTimeout(locTimer);
-  if(v.trim().length < 3){ locSug = []; renderLocSug(); return; }
+  const q = v.trim(), tok = ++locTok;
+  if(q.length < 3){ locSug = []; locMsg = ''; renderLocSug(); return; }
+  locMsg = 'Searching...'; locSug = []; renderLocSug();
   locTimer = setTimeout(async () => {
-    const h = S.settings.home, bias = h.lat != null ? {lat:h.lat, lon:h.lon} : {lat:43.65, lon:-79.38};
-    try{ locSug = await photonSearch(v.trim(), bias); }catch(e){ locSug = []; }
+    const h = S.settings.home, home = h.lat != null ? {lat:h.lat, lon:h.lon} : null, bias = home || {lat:43.65, lon:-79.38};
+    const qs = [q]; if(locStore && !q.toLowerCase().includes(locStore.toLowerCase())) qs.push(locStore + ' ' + q);
+    const res = await Promise.allSettled(qs.map(x => photonSearch(x, bias, 15)));
+    if(tok !== locTok) return;
+    const seen = [], out = [];
+    res.forEach(r => (r.status === 'fulfilled' ? r.value : []).forEach(x => { if(!seen.some(o => hav(o, x) < 0.05)){ seen.push(x); out.push(x); } }));
+    if(home) out.sort((a,b) => hav(home, a) - hav(home, b));
+    locSug = out.slice(0, 8);
+    locMsg = locSug.length ? '' : (res.every(r => r.status === 'rejected') ? 'Search failed (' + res[0].reason.message + '). Try again in a moment.' : 'No matches. Try a street or neighbourhood.');
     renderLocSug();
   }, 350);
 }
