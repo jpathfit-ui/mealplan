@@ -145,6 +145,8 @@ details summary{cursor:pointer;color:var(--acc);font-weight:600;font-size:14px}
 .stop{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px}
 .stoph{display:flex;justify-content:space-between;gap:8px}
 .stoph span{font-variant-numeric:tabular-nums;font-weight:600}
+.vid{background:#1d2a21;border-radius:14px;overflow:hidden;aspect-ratio:4/3}
+.vid video{width:100%;height:100%;object-fit:cover;display:block}
 .sblock{border-top:1px dashed var(--line)}
 .sblock .srow{border-top:0;padding-bottom:2px}
 .saddr{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);padding:0 0 9px}
@@ -208,7 +210,90 @@ const STARTER = [
  ['Canola oil','fat',884,0,0,100,5,30],
  ['Butter','fat',717,0.9,0.1,81,10,25],
  ['Peanut butter','fat',588,25,20,50,8,40],
- ['Cheddar cheese','fat',403,25,1.3,33,14,60]
+ ['Cheddar cheese','fat',403,25,1.3,33,14,60],
+ ['Egg whites (liquid)','protein',52,10.9,0.7,0.2,9,300,'bms'],
+ ['Chicken deli meat, sliced','protein',105,17.5,2,3,28,120,'bms'],
+ ['Turkey deli meat, sliced','protein',104,17,3,2,28,120,'bms'],
+ ['Ham, sliced','protein',110,17,2,4,22,120,'bms'],
+ ['Roast beef, sliced','protein',125,20,1,4.5,32,120,'bms'],
+ ['Cottage cheese, 2%','protein',81,10.5,3.5,2.3,9,250,'bs'],
+ ['Ricotta, part-skim','protein',138,11,5,8,10,150,'bs'],
+ ['Greek yogurt, 2%','protein',73,10,3.9,1.9,7.5,300,'bs'],
+ ['High protein milk, 0%','protein',40,5.2,4,0.1,3.5,400,'bs'],
+ ['High protein milk, 2%','protein',56,5.2,3.9,2,3.5,400,'bs'],
+ ['Milk, 2%','protein',50,3.3,4.8,2,1.8,400,'bs'],
+ ['Milk, skim','protein',34,3.4,5,0.1,1.8,400,'bs'],
+ ['Whey protein blend (powder)','protein',400,80,8,6,55,60,'bs'],
+ ['Chicken thigh, boneless (raw)','protein',125,19.5,0,4.9,11,350,'m'],
+ ['Ground beef, extra lean (raw)','protein',137,21.5,0,5,15,300,'m'],
+ ['Ground turkey, lean (raw)','protein',150,19,0,8,13,300,'m'],
+ ['Beef sirloin steak (raw)','protein',150,22,0,6,28,300,'m'],
+ ['Cod fillet (raw)','protein',82,18,0,0.7,22,350,'m'],
+ ['Tilapia fillet (raw)','protein',96,20,0,1.7,14,350,'m'],
+ ['Shrimp, frozen cooked','protein',99,24,0.2,0.3,25,250,'m'],
+ ['Pan-seared salmon (frozen, air fryer)','protein',175,18,4,9,32,250,'m'],
+ ['Pan-seared sole (frozen, air fryer)','protein',140,14,7,5,28,250,'m'],
+ ['Breaded fish sticks (frozen)','protein',200,12,18,9,14,200,'m'],
+ ['Breaded chicken strips (frozen)','protein',235,15,15,13,20,200,'m'],
+ ['Chickpeas (dry)','protein',364,19,61,6,4,150,'m'],
+ ['English muffin','carb',227,8,44,1.7,10,150,'bms'],
+ ['Sourdough bread','carb',270,10,52,2,8,150,'bms'],
+ ['Bagel, plain','carb',257,10,50,1.6,9,150,'bm'],
+ ['Whole wheat tortilla','carb',300,9,50,7,8,120,'bm'],
+ ['Cereal, bran flakes','carb',320,10,72,2,9,90,'bs'],
+ ['Cereal, protein crunch','carb',370,24,52,6,16,80,'bs'],
+ ['Granola','carb',470,10,64,20,12,70,'bs'],
+ ['Sweet potato','carb',86,1.6,20,0.1,3,300,'bm'],
+ ['Brown rice (dry)','carb',370,7.5,77,3,4,150,'m'],
+ ['Quinoa (dry)','carb',368,14,64,6,9,120,'m'],
+ ['Whole wheat pasta (dry)','carb',348,14,72,2.5,4,150,'m'],
+ ['Orange','veg',47,0.9,12,0.1,3,300,'bs'],
+ ['Strawberries','veg',32,0.7,7.7,0.3,8,300,'bs'],
+ ['Blueberries','veg',57,0.7,14,0.3,14,200,'bs'],
+ ['Raspberries','veg',52,1.2,12,0.7,16,200,'bs'],
+ ['Grapes','veg',69,0.7,18,0.2,6,250,'bs'],
+ ['Pineapple','veg',50,0.5,13,0.1,4,300,'bs'],
+ ['Mango','veg',60,0.8,15,0.4,5,250,'bs'],
+ ['Peaches','veg',39,0.9,10,0.3,6,250,'bs'],
+ ['Pears','veg',57,0.4,15,0.1,4,250,'bs'],
+ ['Cantaloupe','veg',34,0.8,8,0.2,3,300,'bs'],
+ ['Kiwi','veg',61,1.1,15,0.5,8,200,'bs'],
+ ['Frozen mixed berries','veg',50,0.9,12,0.3,9,200,'bs'],
+ ['Frozen strawberries','veg',35,0.5,9,0.1,7,200,'bs'],
+ ['Frozen mango','veg',60,0.8,15,0.4,9,200,'bs'],
+ ['Mushrooms','veg',22,3.1,3.3,0.3,9,200,'bm'],
+ ['Cauliflower','veg',25,1.9,5,0.3,4,300,'m'],
+ ['Green beans','veg',31,1.8,7,0.2,5,250,'m'],
+ ['Peas, frozen','veg',81,5.4,14,0.4,4,200,'m'],
+ ['Corn, frozen','veg',86,3.3,19,1.4,4,200,'m'],
+ ['Zucchini','veg',17,1.2,3.1,0.3,4,300,'m'],
+ ['Asparagus','veg',20,2.2,3.9,0.1,10,250,'m'],
+ ['Brussels sprouts','veg',43,3.4,9,0.3,6,250,'m'],
+ ['Cabbage','veg',25,1.3,5.8,0.1,2.5,300,'m'],
+ ['Kale','veg',49,4.3,9,0.9,8,150,'m'],
+ ['Romaine lettuce','veg',17,1.2,3.3,0.3,6,200,'m'],
+ ['Mixed salad greens','veg',20,2,3.5,0.3,12,150,'ms'],
+ ['Cucumber','veg',15,0.7,3.6,0.1,3,250,'ms'],
+ ['Celery','veg',16,0.7,3,0.2,3,150,'ms'],
+ ['Eggplant','veg',25,1,6,0.2,5,300,'m'],
+ ['Butternut squash','veg',45,1,12,0.1,3,300,'m'],
+ ['Beets','veg',43,1.6,10,0.2,3,200,'m'],
+ ['Green onions','veg',32,1.8,7,0.2,8,40,'bm'],
+ ['Avocado','fat',160,2,9,15,9,100,'bms'],
+ ['Almonds','fat',579,21,22,50,22,40,'bms'],
+ ['Walnuts','fat',654,15,14,65,25,40,'bms'],
+ ['Almond butter','fat',614,21,19,56,20,40,'bs'],
+ ['Chia seeds','fat',486,17,42,31,20,30,'bs'],
+ ['Cream cheese','fat',342,6,4,34,14,40,'bms'],
+ ['Mozzarella, part-skim','fat',254,24,3,16,14,60,'bms'],
+ ['Swiss cheese','fat',380,27,5,28,22,60,'bms'],
+ ['Gouda','fat',356,25,2.2,27,22,60,'bms'],
+ ['Provolone','fat',351,26,2,27,22,60,'bms'],
+ ['Colby Jack cheese','fat',393,24,2,32,15,60,'bms'],
+ ['Brie','fat',334,21,0.5,28,28,50,'bms'],
+ ['Goat cheese','fat',364,22,0.1,30,38,50,'bms'],
+ ['Feta','fat',264,14,4,21,20,50,'bms'],
+ ['Parmesan','fat',431,38,4,29,30,30,'bms']
 ];
 const DEFAULT_ON = ['Chicken breast (raw)','Canned tuna (drained)','Eggs','Pasta (dry)','White rice (dry)','Rolled oats (dry)','Broccoli','Carrots','Spinach','Banana','Olive oil'];
 const KINDS = {'Chicken breast (raw)':'m','Ground beef, lean (raw)':'m','Pork loin (raw)':'m','Salmon fillet (raw)':'m','Canned tuna (drained)':'m','Eggs':'bms','Firm tofu':'bm','Greek yogurt, 0%':'bs','Lentils (dry)':'m','Black beans (dry)':'m','Pasta (dry)':'m','White rice (dry)':'m','Rolled oats (dry)':'bs','Potatoes':'bm','Whole wheat bread':'bms','Broccoli':'m','Spinach':'bm','Carrots':'ms','Bell pepper':'bm','Onion':'m','Tomatoes':'bm','Frozen mixed vegetables':'m','Banana':'bs','Apple':'bs','Olive oil':'bms','Canola oil':'bms','Butter':'bm','Peanut butter':'bs','Cheddar cheese':'bms'};
@@ -236,8 +321,10 @@ const SNACK_TEMPLATES = [
  {n:'Snack',     s:['protein','veg','fat'], temp:'cold', prep:'low'}
 ];
 
+const mkFood = r => ({id: uid(), name:r[0], cat:r[1], k:r[2], p:r[3], c:r[4], f:r[5], price:r[6], maxg:r[7]||null, avg:null, n:0, sp:{}, on: DEFAULT_ON.includes(r[0]), kinds: r[8] || KINDS[r[0]] || null, use:null});
+const SEED_V = 2;
 function defaultState(){
-  const foods = STARTER.map(r => ({id: uid(), name:r[0], cat:r[1], k:r[2], p:r[3], c:r[4], f:r[5], price:r[6], maxg:r[7]||null, avg:null, n:0, sp:{}, on: DEFAULT_ON.includes(r[0]), kinds: KINDS[r[0]]||null, use:null}));
+  const foods = STARTER.map(mkFood);
   return {
     settings:{
       kcal:2000, pPct:30, cPct:40, fPct:30, dayVar:10, mealVar:20, ceiling:true,
@@ -245,7 +332,7 @@ function defaultState(){
       days:7, rotate:1, temp:'any', method:'Any', time:'Any', budget:0,
       stores:['No Frills','Walmart','Metro','Costco'], primary:'No Frills', trip:5, pick:'best', perKm:0.65, home:{text:'',lat:null,lon:null}, storeInfo:{}, sheetUrl:'', gkey:''
     },
-    foods, plan:null, history:[], log:[], done:{}
+    foods, plan:null, history:[], log:[], done:{}, seedV:SEED_V
   };
 }
 function loadState(){
@@ -257,13 +344,18 @@ function loadState(){
       out.settings.meals.forEach(m => { if(!m.id) m.id = uid(); if(!m.temp) m.temp = (o.settings && o.settings.temp) || 'any'; });
       const CAPS = {'Eggs':250,'Spinach':120};
       out.foods.forEach(f => { if(CAPS[f.name] && !f.maxg) f.maxg = CAPS[f.name]; if(f.kinds === undefined){ f.kinds = KINDS[f.name] || null; } if(f.use === undefined) f.use = null; });
+      if((o.seedV || 1) < SEED_V){
+        const have = new Set(out.foods.map(f => f.name.toLowerCase()));
+        STARTER.forEach(r => { if(!have.has(r[0].toLowerCase())) out.foods.push(mkFood(r)); });
+        out.seedV = SEED_V;
+      }
       return out;
     }
   }catch(e){}
   return d;
 }
 let S = loadState();
-let view = 'plan', storeSel = null;
+let view = 'plan', storeSel = null, foodQ = '';
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 const foodById = id => S.foods.find(f => f.id === id);
 
@@ -693,14 +785,15 @@ function vFoods(){
   const st = S.settings;
   if(!storeSel || !st.stores.includes(storeSel)) storeSel = st.primary;
   let h = `<div class="card"><h2>Foods you will buy</h2><div class="mut">Tick what you are shopping for. Under each ticked food, choose which meals it can appear in. Prices are per kg.</div>
+   <div class="row" style="margin-top:10px"><input id="food_q" type="search" autocomplete="off" placeholder="Search foods" value="${esc(foodQ)}" style="flex:1"><button class="g" data-act="scan">Scan barcode</button></div>
    <div class="chips" style="margin-top:10px">${st.stores.map(s => `<button class="chip ${s===storeSel?'on':''}" data-act="store" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
    <div class="fr" style="border:0;padding-bottom:0"><span></span><span class="mut">Food</span><span class="mut" style="text-align:right">Typical</span><span class="mut" style="text-align:right">${esc(storeSel)}</span></div>`;
   ['protein','carb','veg','fat'].forEach(cat => {
-    const fs = S.foods.filter(f => f.cat === cat);
-    h += `<div class="mut" style="margin-top:10px;font-weight:600">${CAT_LABEL[cat]}</div>`;
+    const fs = S.foods.filter(f => f.cat === cat && (!foodQ || f.name.toLowerCase().includes(foodQ.toLowerCase())));
+    h += `<div class="mut cath" style="margin-top:10px;font-weight:600">${CAT_LABEL[cat]} <span class="mut" style="font-weight:400">${fs.length}</span></div>`;
     fs.forEach(f => {
       const sp = f.sp[storeSel] && f.sp[storeSel].now;
-      h += `<div class="frw"><div class="fr"><input type="checkbox" data-act="tick" data-id="${f.id}" ${f.on?'checked':''}>
+      h += `<div class="frw" data-n="${esc(f.name.toLowerCase())}"><div class="fr"><input type="checkbox" data-act="tick" data-id="${f.id}" ${f.on?'checked':''}>
        <div class="nm">${esc(f.name)}<small>${f.k} kcal · P${f.p} C${f.c} F${f.f} /100g${f.avg!=null?` · learned from ${f.n} log${f.n===1?'':'s'}`:''}</small></div>
        <input type="number" step="0.01" inputmode="decimal" data-act="price" data-id="${f.id}" value="${basePrice(f).toFixed(2)}">
        <input type="number" step="0.01" inputmode="decimal" placeholder="—" data-act="sprice" data-id="${f.id}" value="${sp?sp:''}"></div>${f.on?allocRow(f):''}</div>`;
@@ -1063,7 +1156,7 @@ function removeStore(name){
 
 /* ---------- modals ---------- */
 function openModal(html){ $('#modal').innerHTML = `<div class="modal" data-act="mclose"><div class="sheet">${html}</div></div>`; }
-function closeModal(){ $('#modal').innerHTML = ''; }
+function closeModal(){ stopScan(); $('#modal').innerHTML = ''; }
 
 function swapModal(di, mi){
   const m = S.plan.list[di][mi], slot = S.settings.meals[mi] || m;
@@ -1143,6 +1236,101 @@ function addFoodModal(){
    <div class="row" style="margin-top:14px"><button class="b" style="flex:1" data-act="nfsave">Add</button><button class="g" data-act="mclose">Cancel</button></div>`);
 }
 
+/* ---------- barcode scanning (Open Food Facts) ---------- */
+let scanStream = null, scanLive = false, zxPromise = null;
+function stopScan(){ scanLive = false; if(scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; } }
+function loadZX(){
+  if(window.ZXing) return Promise.resolve();
+  if(!zxPromise) zxPromise = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'; sc.onload = res; sc.onerror = () => { zxPromise = null; rej(new Error('scanner library did not load')); }; document.head.appendChild(sc); });
+  return zxPromise;
+}
+function scanModal(){
+  openModal(`<h3>Scan barcode</h3>
+   <div class="vid"><video id="scan_v" playsinline muted></video></div>
+   <div class="mut" id="scan_msg" style="margin-top:8px">Starting camera...</div>
+   <label class="f" style="margin-top:12px">Or type the number under the barcode<input id="scan_code" inputmode="numeric" placeholder="e.g. 0068100087049"></label>
+   <div class="row" style="margin-top:12px"><button class="b" data-act="scancode">Look up</button><button class="g" data-act="mclose">Cancel</button></div>`);
+  startScan();
+}
+async function startScan(){
+  const msg = t => { const m = $('#scan_msg'); if(m) m.textContent = t; };
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Camera is not available here');
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false});
+    const v = $('#scan_v');
+    if(!v){ stream.getTracks().forEach(t => t.stop()); return; }
+    scanStream = stream; scanLive = true; v.srcObject = stream; await v.play();
+    msg('Hold the barcode inside the picture and keep it steady.');
+    if('BarcodeDetector' in window){
+      const det = new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']});
+      const loop = async () => { if(!scanLive) return; try{ const r = await det.detect(v); if(r.length){ onCode(r[0].rawValue); return; } }catch(e){} setTimeout(loop, 200); };
+      loop();
+    } else {
+      await loadZX();
+      const hints = new Map(); hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E]); hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      const reader = new ZXing.MultiFormatReader(); reader.setHints(hints);
+      const cv = document.createElement('canvas'), cx = cv.getContext('2d', {willReadFrequently:true});
+      const loop = () => {
+        if(!scanLive) return;
+        if(v.videoWidth){
+          const w = Math.min(960, v.videoWidth), h = Math.round(w * v.videoHeight / v.videoWidth); cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h);
+          try{ const r = reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)))); if(r){ onCode(r.getText()); return; } }catch(e){}
+        }
+        setTimeout(loop, 160);
+      };
+      loop();
+    }
+  }catch(e){ msg((e.name === 'NotAllowedError' ? 'Camera permission was blocked. Allow it for this site, or type the number below.' : 'Could not start the camera (' + e.message + '). You can type the number below.')); }
+}
+function onCode(raw){ stopScan(); lookupCode(String(raw)); }
+async function lookupCode(raw){
+  let code = raw.replace(/\D/g, ''); if(!code){ toast('Enter the digits under the barcode'); return; }
+  if(code.length === 12) code = '0' + code;
+  openModal(`<h3>Looking up ${esc(code)}</h3><div class="mut"><span class="stat busy"><i class="spin"></i>Checking Open Food Facts...</span></div>`);
+  try{
+    const j = await jfetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`);
+    if(j.status !== 1 || !j.product) throw new Error('notfound');
+    const pr = j.product, n = pr.nutriments || {};
+    const kcal = n['energy-kcal_100g'] != null ? +n['energy-kcal_100g'] : (n['energy_100g'] != null ? +n['energy_100g'] / 4.184 : 0);
+    const nm = [pr.brands && pr.brands.split(',')[0].trim(), pr.product_name].filter(Boolean).join(' ');
+    scanResult(code, {name:nm, k:Math.round(kcal), p:+(n.proteins_100g || 0).toFixed(1), c:+(n.carbohydrates_100g || 0).toFixed(1), f:+(n.fat_100g || 0).toFixed(1)}, kcal > 0 || n.proteins_100g != null);
+  }catch(e){
+    openModal(`<h3>Not found</h3><div class="mut">${e.message === 'notfound' ? 'Open Food Facts does not have ' + esc(code) + ' yet.' : 'Lookup failed (' + esc(e.message) + ').'} You can add it by hand.</div>
+     <div class="row" style="margin-top:14px"><button class="b" data-act="addfood">Add by hand</button><button class="g" data-act="scan">Scan again</button><button class="g" data-act="mclose">Close</button></div>`);
+  }
+}
+function guessCat(p, c, f, k){
+  if(f >= 20) return 'fat';
+  if(k > 0 && p * 4 / k >= 0.3) return 'protein';
+  if(k > 150 && c * 4 / k >= 0.55) return 'carb';
+  return 'veg';
+}
+function scanResult(code, d, hasNut){
+  const known = S.foods.find(f => f.barcode === code);
+  const cat = known ? known.cat : guessCat(d.p, d.c, d.f, d.k);
+  openModal(`<h3>Scanned ${esc(code)}</h3>
+   ${hasNut ? '' : '<div class="mut" style="margin-bottom:8px">No nutrition on file for this one. Fill it in from the label.</div>'}
+   <label class="f">Name<input id="sv_name" value="${esc(known ? known.name : d.name)}"></label>
+   <div class="grid2" style="margin-top:10px"><label class="f">Category<select id="sv_cat">${Object.entries(CAT_LABEL).map(([k,v])=>`<option value="${k}" ${k===cat?'selected':''}>${v}</option>`).join('')}</select></label>
+   <label class="f">$ per kg<input id="sv_price" type="number" step="0.01" value="${known ? known.price : 8}"></label></div>
+   <div class="mut" style="margin:10px 0 4px">Per 100 g, from the package</div>
+   <div class="grid" style="grid-template-columns:repeat(4,1fr)"><label class="f">kcal<input id="sv_k" type="number" value="${d.k}"></label><label class="f">Protein<input id="sv_p" type="number" value="${d.p}"></label><label class="f">Carbs<input id="sv_c" type="number" value="${d.c}"></label><label class="f">Fat<input id="sv_f" type="number" value="${d.f}"></label></div>
+   <div class="mut" style="margin:10px 0 4px">Allowed in</div>
+   <div class="chips">${[['b','Breakfast'],['m','Lunch / dinner'],['s','Snack']].map(([k,l]) => `<label class="chip on" style="cursor:pointer"><input type="checkbox" class="sv_kind" value="${k}" ${!known || !known.kinds || known.kinds.includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+   <label class="f" style="margin-top:12px">Save as<select id="sv_into"><option value="">New food</option>${S.foods.map(f => `<option value="${f.id}" ${known && known.id === f.id ? 'selected' : ''}>Update: ${esc(f.name)}</option>`).join('')}</select></label>
+   ${known ? '<div class="mut" style="margin-top:6px">You scanned this one before, so it is set to update that food.</div>' : ''}
+   <div class="row" style="margin-top:14px"><button class="b" style="flex:1" data-act="scansave" data-code="${esc(code)}">Save</button><button class="g" data-act="scan">Scan another</button><button class="g" data-act="mclose">Cancel</button></div>`);
+}
+function scanSave(code){
+  const name = $('#sv_name').value.trim(); if(!name){ toast('Name needed'); return; }
+  const nv = id => parseFloat($('#'+id).value) || 0, kinds = [...document.querySelectorAll('.sv_kind:checked')].map(x => x.value).join('');
+  const vals = {name, cat:$('#sv_cat').value, k:nv('sv_k'), p:nv('sv_p'), c:nv('sv_c'), f:nv('sv_f'), price:nv('sv_price') || 5, kinds: kinds && kinds.length < 3 ? kinds : null, barcode:code};
+  const into = $('#sv_into').value, ex = into && foodById(into);
+  if(ex){ Object.assign(ex, vals, {on:true}); ex.avg = null; ex.n = 0; }
+  else S.foods.push({id:uid(), maxg:null, avg:null, n:0, sp:{}, on:true, use:null, ...vals});
+  save(); closeModal(); render(); toast(ex ? 'Food updated' : 'Food added');
+}
+
 /* ---------- events ---------- */
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-act]'); if(!el) return;
@@ -1186,6 +1374,9 @@ document.addEventListener('click', async e => {
     case 'logmodal': logModal(); break;
     case 'lgsave': logSave(); break;
     case 'addfood': addFoodModal(); break;
+    case 'scan': stopScan(); scanModal(); break;
+    case 'scancode': { const c = ($('#scan_code') || {}).value || ''; stopScan(); lookupCode(c); break; }
+    case 'scansave': scanSave(el.dataset.code); break;
     case 'nfsave': {
       const name = $('#nf_name').value.trim(); if(!name){ toast('Name needed'); break; }
       const cat = $('#nf_cat').value, nv = id => parseFloat($('#'+id).value) || 0;
@@ -1245,6 +1436,7 @@ document.addEventListener('input', e => {
   if(e.target.id === 'rc_note'){ recipeNote = e.target.value; updateLinks(); }
   if(e.target.id === 'home_txt') onHomeInput(e.target.value);
   if(e.target.id === 'sl_q') onLocInput(e.target.value);
+  if(e.target.id === 'food_q'){ foodQ = e.target.value.trim(); const q = foodQ.toLowerCase(); document.querySelectorAll('.frw').forEach(r => { r.style.display = !q || r.dataset.n.includes(q) ? '' : 'none'; }); }
 });
 render();
 </script>
