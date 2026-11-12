@@ -167,6 +167,10 @@ details summary{cursor:pointer;color:var(--acc);font-weight:600;font-size:14px}
 .lnk{background:none;border:0;color:var(--acc);font:inherit;font-size:13px;font-weight:600;padding:4px 0;cursor:pointer}
 .fr.hd{padding:2px 0 4px;font-size:11px;color:var(--mut);border:0}
 .fr.hd span:nth-child(n+3){text-align:right}
+.ing.add{color:var(--mut);font-size:13px}.ing.add small{font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.fopt{margin:0 0 12px 32px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
+.fgrid{display:grid;grid-template-columns:1fr 1.2fr .8fr .8fr;gap:8px;margin-top:8px}
+.chip.opt{border-style:dashed}
 .cb{padding:12px 0;border-top:1px dashed var(--line)}
 .gb>.cb:first-child{border-top:0}
 .cslot{border:1px solid var(--line);border-radius:14px;padding:8px 10px;margin:8px 0}
@@ -320,7 +324,12 @@ const STARTER = [
  ['Brie','fat',334,21,0.5,28,28,50,'bms'],
  ['Goat cheese','fat',364,22,0.1,30,38,50,'bms'],
  ['Feta','fat',264,14,4,21,20,50,'bms'],
- ['Parmesan','fat',431,38,4,29,30,30,'bms']
+ ['Parmesan','fat',431,38,4,29,30,30,'bms'],
+ ['Coffee, black','veg',1,0.1,0,0,1,500,'b',{mode:'addon',addG:240}],
+ ['Salsa','veg',36,1.5,7,0.2,6,100,'bm',{mode:'addon',addG:30}],
+ ['Mustard','veg',66,4,6,3.3,5,40,'bm',{mode:'addon',addG:10}],
+ ['Hot sauce','veg',11,0.5,2,0.1,12,20,'bms',{mode:'addon',addG:5}],
+ ['Soy sauce','veg',53,8,5,0.6,8,30,'m',{mode:'addon',addG:15}]
 ];
 const DEFAULT_ON = ['Chicken breast (raw)','Canned tuna (drained)','Eggs','Pasta (dry)','White rice (dry)','Rolled oats (dry)','Broccoli','Carrots','Spinach','Banana','Olive oil','Milk, 2%','Whole wheat bread','Greek yogurt, 0%','Peanut butter','Apple','Cheddar cheese','Potatoes'];
 const KINDS = {'Chicken breast (raw)':'m','Ground beef, lean (raw)':'m','Pork loin (raw)':'m','Salmon fillet (raw)':'m','Canned tuna (drained)':'m','Eggs':'bms','Firm tofu':'bm','Greek yogurt, 0%':'bs','Lentils (dry)':'m','Black beans (dry)':'m','Pasta (dry)':'m','White rice (dry)':'m','Rolled oats (dry)':'bs','Potatoes':'bm','Whole wheat bread':'bms','Broccoli':'m','Spinach':'bm','Carrots':'ms','Bell pepper':'bm','Onion':'m','Tomatoes':'bm','Frozen mixed vegetables':'m','Banana':'bs','Apple':'bs','Olive oil':'bms','Canola oil':'bms','Butter':'bm','Peanut butter':'bs','Cheddar cheese':'bms'};
@@ -348,8 +357,11 @@ const SNACK_TEMPLATES = [
  {n:'Snack',     s:['protein','veg','fat'], temp:'cold', prep:'low'}
 ];
 
-const mkFood = r => ({id: uid(), name:r[0], cat:r[1], k:r[2], p:r[3], c:r[4], f:r[5], price:r[6], maxg:r[7]||null, avg:null, n:0, sp:{}, on: DEFAULT_ON.includes(r[0]), kinds: r[8] || KINDS[r[0]] || null, use:null});
-const SEED_V = 2;
+const UNIT_DEFAULTS = {'Eggs':[50,'egg',1,4],'English muffin':[57,'muffin',1,2],'Whole wheat bread':[35,'slice',1,3],'Sourdough bread':[45,'slice',1,3],'Bagel, plain':[100,'bagel',1,2],'Whole wheat tortilla':[60,'tortilla',1,2],'Banana':[118,'banana',1,2],'Apple':[180,'apple',1,2],'Orange':[130,'orange',1,2],'Kiwi':[70,'kiwi',1,3],'Avocado':[75,'half avocado',1,2],'Cheddar cheese':[21,'slice',1,3],'Swiss cheese':[21,'slice',1,3],'Provolone':[21,'slice',1,3],'Colby Jack cheese':[21,'slice',1,3],'Ham, sliced':[15,'slice',2,8],'Chicken deli meat, sliced':[20,'slice',2,6],'Turkey deli meat, sliced':[20,'slice',2,6],'Roast beef, sliced':[20,'slice',2,6]};
+const plural = w => /s$/.test(w) ? w : w.replace(/y$/, 'ie') + (/y$/.test(w) ? 's' : 's');
+function unitFor(name){ const u = UNIT_DEFAULTS[name]; return u ? {mode:'units', unit:{g:u[0], label:u[1], plural:plural(u[1]), min:u[2], max:u[3]}} : {mode:'flex'}; }
+const mkFood = r => ({id: uid(), ...unitFor(r[0]), ...(r[9] || {}), name:r[0], cat:r[1], k:r[2], p:r[3], c:r[4], f:r[5], price:r[6], maxg:r[7]||null, avg:null, n:0, sp:{}, on: DEFAULT_ON.includes(r[0]), kinds: r[8] || KINDS[r[0]] || null, use:null});
+const SEED_V = 3;
 
 /* ---------- combos (associations): foods that belong together in a meal ---------- */
 // name, meal kinds (b/m/s), served, slots. A slot is 'any|of|these' foods; a leading ? makes the slot optional.
@@ -435,8 +447,10 @@ function loadState(){
       if((o.seedV || 1) < SEED_V){
         const have = new Set(out.foods.map(f => f.name.toLowerCase()));
         STARTER.forEach(r => { if(!have.has(r[0].toLowerCase())) out.foods.push(mkFood(r)); });
+        out.foods.forEach(f => { if(f.mode === undefined) Object.assign(f, unitFor(f.name)); });
         out.seedV = SEED_V;
       }
+      out.foods.forEach(f => { if(f.mode === undefined) Object.assign(f, unitFor(f.name)); });
       if(!Array.isArray(o.combos)) out.combos = seedCombos(out.foods);
       return out;
     }
@@ -454,6 +468,7 @@ const priceAt = (f, store) => (f.sp && f.sp[store] && f.sp[store].now > 0) ? f.s
 
 /* ---------- solver ---------- */
 function bnd(f, boost){
+  if(f.mode === 'units' && f.unit){ const u = f.unit, mn = Math.max(1, u.min || 1); return [u.g * mn, u.g * Math.max(mn, u.max || 4)]; }
   let [lo, hi] = CAT_BOUNDS[f.cat];
   if(f.maxg) hi = f.maxg;
   if(hi < lo) lo = Math.max(1, Math.floor(hi/3));
@@ -461,8 +476,10 @@ function bnd(f, boost){
   return [lo, hi];
 }
 function optimize(items, T, boostId){
-  const b = items.map(f => bnd(f, f.id === boostId));
-  const g = b.map(([lo,hi]) => Math.round((lo*hi)**.5));
+  const bset = new Set([].concat(boostId || []));
+  const b = items.map(f => bnd(f, bset.has(f.id)));
+  const un = items.map(f => f.mode === 'units' && f.unit ? f.unit.g : 0);
+  const g = b.map(([lo,hi], i) => { let x = Math.round((lo*hi)**.5); if(un[i]) x = Math.min(hi, Math.max(lo, Math.round(x/un[i])*un[i])); return x; });
   const ev = g => {
     let k=0,p=0,c=0,f=0;
     items.forEach((it,i) => { const m=g[i]/100; k+=it.k*m; p+=it.p*m; c+=it.c*m; f+=it.f*m; });
@@ -474,7 +491,8 @@ function optimize(items, T, boostId){
       let imp = false;
       for(let i=0;i<items.length;i++){
         for(const d of [-step, step]){
-          const old = g[i], ng = Math.min(b[i][1], Math.max(b[i][0], old + d));
+          const dd = un[i] ? Math.sign(d) * un[i] : d;
+          const old = g[i], ng = Math.min(b[i][1], Math.max(b[i][0], old + dd));
           if(ng === old) continue;
           g[i] = ng;
           const e = ev(g);
@@ -484,9 +502,14 @@ function optimize(items, T, boostId){
       if(!imp) break;
     }
   }
-  // round for display: 5 g steps, fats 1 g
-  const r = g.map((x,i) => items[i].cat === 'fat' ? Math.round(x) : Math.max(b[i][0] > 5 ? 5 : 1, Math.round(x/5)*5));
+  // round for display: 5 g steps, fats 1 g, whole units stay exact
+  const r = g.map((x,i) => un[i] ? x : items[i].cat === 'fat' ? Math.round(x) : Math.max(b[i][0] > 5 ? 5 : 1, Math.round(x/5)*5));
   return {g:r, err: ev(r)};
+}
+function qtyLabel(it){
+  const f = foodById(it.id);
+  if(f && f.mode === 'units' && f.unit){ const n = Math.round(it.g / f.unit.g); return `${n} ${n === 1 ? f.unit.label : (f.unit.plural || f.unit.label + 's')} · ${it.g} g`; }
+  return it.g + ' g';
 }
 const totals = (items, g) => items.reduce((t,it,i) => { const m=g[i]/100; t.k+=it.k*m; t.p+=it.p*m; t.c+=it.c*m; t.f+=it.f*m; return t; }, {k:0,p:0,c:0,f:0});
 
@@ -497,7 +520,7 @@ function allowed(f, meal){
 }
 function poolFor(meal){
   const pool = {protein:[],carb:[],veg:[],fat:[]};
-  S.foods.filter(f => f.on && allowed(f, meal)).forEach(f => pool[f.cat] && pool[f.cat].push(f));
+  S.foods.filter(f => f.on && f.mode !== 'addon' && allowed(f, meal)).forEach(f => pool[f.cat] && pool[f.cat].push(f));
   return pool;
 }
 function templatesFor(type, temp){
@@ -510,7 +533,7 @@ const comboById = id => (S.combos || []).find(c => c.id === id);
 function comboOptions(c, slot, opt){
   const out = [];
   for(const sl of c.slots){
-    let arr = sl.ids.map(foodById).filter(f => f && f.on && allowed(f, slot));
+    let arr = sl.ids.map(foodById).filter(f => f && f.on && f.mode !== 'addon' && allowed(f, slot));
     if(opt && opt.exclude){ const a2 = arr.filter(f => f.id !== opt.exclude[f.cat]); if(a2.length) arr = a2; }
     if(!arr.length){ if(sl.opt) continue; return null; }
     out.push({arr, opt: !!sl.opt, i: c.slots.indexOf(sl)});
@@ -523,19 +546,20 @@ function comboFits(c, slot, temp){
   if(c.src === 'seed' && c.kinds.includes('b') && c.kinds.includes('m') && /dinner|supper/i.test(slot.name)) return false;
   return temp === 'any' || c.temp === 'any' || c.temp === temp;
 }
-function comboCands(slot, T, opt, recent, temp, lo, hi){
-  const st = S.settings, force = opt.force ? foodById(opt.force) : null;
+function comboCands(slot, T, opt, recent, temp, lo, hi, forces){
   const list = opt.combo ? [comboById(opt.combo)].filter(Boolean) : (S.combos || []).filter(c => comboFits(c, slot, temp));
   const cands = [], seen = new Set();
   for(const c of list){
     const sl = comboOptions(c, slot, opt); if(!sl) continue;
-    if(force && !sl.some(x => x.arr.some(f => f.id === force.id))) continue;
+    if(forces.some(fo => !sl.some(x => x.arr.some(f => f.id === fo.id)))) continue;
     const tries = c.ratio ? 1 : 6;
     for(let n=0; n<tries; n++){
       const items = [];
       for(const x of sl){
-        if(x.opt && !c.ratio && Math.random() > 0.65 && !(force && x.arr.some(f => f.id === force.id))) continue;
-        items.push(force && x.arr.some(f => f.id === force.id) ? force : (c.ratio ? x.arr[0] : pick(x.arr)));
+        const fx = forces.filter(fo => x.arr.some(f => f.id === fo.id));
+        if(fx.length){ items.push(...fx); continue; }
+        if(x.opt && !c.ratio && Math.random() > 0.65) continue;
+        items.push(c.ratio ? x.arr[0] : pick(x.arr));
       }
       const uniq = [...new Map(items.map(f => [f.id, f])).values()];
       if(!uniq.length) continue;
@@ -546,7 +570,8 @@ function comboCands(slot, T, opt, recent, temp, lo, hi){
       if(c.ratio){
         const base = uniq.map(f => { const k = c.slots.findIndex(s2 => s2.ids.includes(f.id)); return c.ratio[k] || 100; });
         const k0 = totals(uniq, base).k || 1, sc = Math.max(.4, Math.min(2.5, T.k / k0));
-        g = base.map(x => Math.max(5, Math.round(x * sc / 5) * 5)); tt = totals(uniq, g); score = mealErr(tt, T);
+        g = base.map((x, i) => { const f = uniq[i], v = Math.max(5, Math.round(x * sc / 5) * 5); return f.mode === 'units' && f.unit ? Math.max(f.unit.g, Math.round(v / f.unit.g) * f.unit.g) : v; });
+        tt = totals(uniq, g); score = mealErr(tt, T);
       } else { const o = optimize(uniq, T, opt.force); g = o.g; tt = totals(uniq, g); score = o.err; }
       uniq.forEach(f => { score += 0.015 * ((recent && recent[f.id]) || 0); });
       if(c.src === 'saved') score *= 0.5;
@@ -560,30 +585,33 @@ function solveMeal(slot, T, pool, opt, recent){
   const temp = opt.temp || slot.temp || 'any';
   const lo = T.k * (1 - st.mealVar/100), hi = st.ceiling ? T.k*(1+st.mealVar/200) : T.k*(1 + st.mealVar/100);
   const mode = opt.combo ? 'only' : (st.assoc || 'strict');
+  const force = opt.force ? foodById(opt.force) : null;
+  const forces = [...new Set([...(slot.must || []).map(foodById).filter(f => f && f.on && f.mode !== 'addon' && allowed(f, slot)), ...(force ? [force] : [])])];
   const pickBest = cands => {
     let usable = cands.filter(c => c.inK);
     if(!usable.length) usable = cands;
     usable.sort((a,b) => a.score - b.score);
     return pick(usable.slice(0, Math.min(5, usable.length)));
   };
+  const adds = () => S.foods.filter(f => f.on && f.mode === 'addon' && allowed(f, slot)).map(f => ({id:f.id, g:f.addG || 10}));
   const out = (c, free) => ({name: slot.name, type: slot.type, want: temp, tpl: c.t.n, temp: c.t.temp, sig: c.sig, combo: c.combo || null, cname: c.combo ? c.t.n : null, free: !!free,
-          items: c.items.map((f,i) => ({id:f.id, g:c.g[i]})), tot: c.tt});
+          items: c.items.map((f,i) => ({id:f.id, g:c.g[i]})), add: adds(), tot: c.tt});
   let cc = [];
-  if(mode !== 'free') cc = comboCands(slot, T, opt, recent, temp, lo, hi);
+  if(mode !== 'free') cc = comboCands(slot, T, opt, recent, temp, lo, hi, forces);
   if(mode === 'only') return cc.length ? out(pickBest(cc)) : null;
   if(mode === 'strict' && cc.length) return out(pickBest(cc));
   if(mode === 'prefer' && cc.length && Math.random() < 0.75) return out(pickBest(cc));
   const tpls = templatesFor(slot.type, temp);
-  const force = opt.force ? foodById(opt.force) : null;
   const seen = new Set(), cands = [];
   for(let n=0; n<90; n++){
     const t = pick(tpls);
     const cats = t.s.slice();
-    if(force && !cats.includes(force.cat)) cats.push(force.cat);
+    forces.forEach(fo => { if(!cats.includes(fo.cat)) cats.push(fo.cat); });
     const items = [];
     for(const cat of cats){
+      const fs = forces.filter(fo => fo.cat === cat);
+      if(fs.length){ items.push(...fs); continue; }
       let arr = pool[cat];
-      if(force && cat === force.cat){ items.push(force); continue; }
       if(opt.exclude && opt.exclude[cat]){
         const a2 = arr.filter(f => f.id !== opt.exclude[cat]);
         if(a2.length) arr = a2;
@@ -684,7 +712,7 @@ function planAvg(){
 }
 function groceryTotals(){
   const P = S.plan, cnt = dayCounts(), g = {};
-  P.list.forEach((d,i) => d.forEach(m => m.items.forEach(it => { g[it.id] = (g[it.id]||0) + it.g*cnt[i]; })));
+  P.list.forEach((d,i) => d.forEach(m => m.items.concat(m.add || []).forEach(it => { g[it.id] = (g[it.id]||0) + it.g*cnt[i]; })));
   return g;
 }
 function groceryLines(){
@@ -749,14 +777,15 @@ const SCRIPT = `function doPost(e){
 
 /* ---------- recipe prompt ---------- */
 function mealPrompt(m, o={}){
-  const items = m.items.map(it => `${foodById(it.id).name.replace(/ \((raw|dry|drained)\)/,'')} ${it.g} g`).join(', ');
+  const items = m.items.map(it => `${foodById(it.id).name.replace(/ \((raw|dry|drained)\)/,'')} ${it.g} g${foodById(it.id).mode === 'units' ? ' (' + qtyLabel(it).split(' · ')[0] + ')' : ''}`).join(', ');
+  const addTxt = (m.add && m.add.length) ? ` Also serve with ${m.add.map(it => foodById(it.id).name + ' ' + it.g + ' g').join(', ')} (not counted in the macros).` : '';
   const st = S.settings, kind = m.type === 'snack' ? 'snack' : m.name.toLowerCase();
   const x = [];
   if(o.method && o.method !== 'Any') x.push(`Cooking method: ${o.method}.`);
   if(o.time && o.time !== 'Any') x.push(`Ready in under ${o.time} minutes.`);
   if(m.want && m.want !== 'any') x.push(`Served ${m.want}.`);
   if(o.note && o.note.trim()) x.push(o.note.trim().replace(/[.!?]?$/, '.'));
-  return `Give me a ${kind} recipe for one serving using exactly these ingredients and amounts (weights are as bought, raw or dry): ${items}. It should come to about ${Math.round(m.tot.k)} kcal, ${Math.round(m.tot.p)} g protein, ${Math.round(m.tot.c)} g carbs, ${Math.round(m.tot.f)} g fat. Keep to these quantities and only add salt, spices, herbs or water. ${x.join(' ')} Short steps please.`;
+  return `Give me a ${kind} recipe for one serving using exactly these ingredients and amounts (weights are as bought, raw or dry): ${items}. It should come to about ${Math.round(m.tot.k)} kcal, ${Math.round(m.tot.p)} g protein, ${Math.round(m.tot.c)} g carbs, ${Math.round(m.tot.f)} g fat. Keep to these quantities and only add salt, spices, herbs or water.${addTxt} ${x.join(' ')} Short steps please.`;
 }
 
 /* ---------- UI ---------- */
@@ -814,7 +843,8 @@ function vPlan(){
     d.forEach((m,mi) => {
             h += `<div class="meal ${mi===0?'first':''}"><div class="nm"><span class="mn">${esc(m.name)}</span><span class="mk">${Math.round(m.tot.k)}<small> kcal</small></span></div>
        <div class="mt">${m.cname?`<b>${esc(m.cname)}</b> · `:''}${m.type==='snack'?'Snack':m.type==='big'?'Big meal':'Light meal'}${m.want&&m.want!=='any'?' · '+(m.want==='hot'?'Hot':'Cold'):''}</div>
-       ${m.items.map(it => `<div class="ing"><span>${esc(foodById(it.id)?.name||'?')}</span><b>${it.g} g</b></div>`).join('')}
+       ${m.items.map(it => `<div class="ing"><span>${esc(foodById(it.id)?.name||'?')}</span><b>${qtyLabel(it)}</b></div>`).join('')}
+       ${(m.add||[]).map(it => `<div class="ing add"><span>${esc(foodById(it.id)?.name||'?')} <small>add-on</small></span><b>${it.g} g</b></div>`).join('')}
        <div class="nums">P ${Math.round(m.tot.p)} · C ${Math.round(m.tot.c)} · F ${Math.round(m.tot.f)}</div>
        <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">Find a recipe</button><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button>${(comboById(m.combo)||{}).note ? `<button class="s" data-act="showrecipe" data-id="${m.combo}">Saved recipe</button>` : ''}</div></div>`;
     });
@@ -835,7 +865,7 @@ function vList(){
   L.lines.forEach(l => {
     const done = S.done[l.f.id];
     h += `<div class="li ${done?'done':''}"><input type="checkbox" data-act="done" data-id="${l.f.id}" ${done?'checked':''}>
-     <div class="mid"><div class="t"><b>${fg(l.g)}</b> ${esc(l.f.name)}</div>
+     <div class="mid"><div class="t"><b>${fg(l.g)}</b> ${esc(l.f.name)}${l.f.mode === 'units' && l.f.unit ? ` <span class="mut">· about ${Math.round(l.g / l.f.unit.g)} ${l.f.unit.plural || l.f.unit.label + 's'}</span>` : ''}</div>
      <div class="mut">${money(l.price)}/kg${l.price<l.base-.005?` <span class="ok">(typical ${money(l.base)})</span>`:''} · ${Math.round(l.share*100)}% of spend</div>
      <div class="bar" style="width:${Math.max(3,Math.round(l.share*100))}%"></div></div>
      <b>${money(l.cost)}</b></div>`;
@@ -928,15 +958,30 @@ function vCompare(L){
 }
 
 function allocRow(f){
-  return `<div class="alloc">${S.settings.meals.map(m => `<button class="chip sm ${allowed(f,m)?'on':''}" data-act="alloc" data-id="${f.id}" data-m="${m.id}">${esc(m.name)}</button>`).join('')}</div>`;
+  const meals = S.settings.meals, locked = meals.filter(m => (m.must || []).includes(f.id));
+  const tags = [f.mode === 'units' && f.unit ? 'fixed' : f.mode === 'addon' ? 'add-on' : '', locked.length ? 'locked' : ''].filter(Boolean).join(', ');
+  const o = !!openFood[f.id];
+  let h = `<div class="alloc">${meals.map(m => `<button class="chip sm ${allowed(f,m)?'on':''}" data-act="alloc" data-id="${f.id}" data-m="${m.id}">${esc(m.name)}</button>`).join('')}<button class="chip sm opt ${o?'on':''}" data-act="fopt" data-id="${f.id}">Options${tags ? ' · ' + tags : ''}</button></div>`;
+  if(o){
+    const mode = f.mode || 'flex', u = f.unit || {g:50, label:'unit', min:1, max:4};
+    h += `<div class="fopt"><div class="mut" style="font-weight:600">How much of it</div>
+     ${seg([['flex','Flexible'],['units','Whole units'],['addon','Add-on']], mode, 'fmode').replace(/data-act="fmode"/g, `data-act="fmode" data-id="${f.id}"`)}
+     ${mode === 'flex' ? '<div class="mut">The planner picks the grams to hit your targets.</div>' : ''}
+     ${mode === 'units' ? `<div class="mut">Meals use whole units only, like 2 eggs or 1 muffin.</div>
+      <div class="fgrid"><label class="f">1 unit is (g)<input type="number" inputmode="decimal" data-act="u_g" data-id="${f.id}" value="${u.g}"></label><label class="f">Called<input data-act="u_label" data-id="${f.id}" value="${esc(u.label)}"></label><label class="f">At least<input type="number" inputmode="numeric" data-act="u_min" data-id="${f.id}" value="${u.min || 1}"></label><label class="f">At most<input type="number" inputmode="numeric" data-act="u_max" data-id="${f.id}" value="${u.max || 4}"></label></div>` : ''}
+     ${mode === 'addon' ? `<div class="mut">Goes in every meal it is allowed in, at a fixed amount. Not counted in calories or macros, but it is on the shopping list.</div>
+      <label class="f" style="margin-top:8px">Amount per meal (g)<input type="number" inputmode="decimal" data-act="f_addg" data-id="${f.id}" value="${f.addG || 10}"></label>` : ''}
+     ${mode !== 'addon' ? `<div class="mut" style="font-weight:600;margin-top:12px">Always include in</div><div class="chips">${meals.map(m => `<button class="chip sm ${(m.must || []).includes(f.id) ? 'on' : ''}" data-act="flock" data-id="${f.id}" data-m="${m.id}">${esc(m.name)}</button>`).join('')}</div>` : ''}</div>`;
+  }
+  return h;
 }
 const FRUIT_NAMES = new Set(['banana','apple','orange','strawberries','blueberries','raspberries','grapes','pineapple','mango','peaches','pears','cantaloupe','kiwi','frozen mixed berries','frozen strawberries','frozen mango']);
 const isFruit = f => f.cat === 'veg' && (f.fruit != null ? f.fruit : FRUIT_NAMES.has(f.name.toLowerCase()));
-const grpOf = f => f.cat === 'veg' ? (isFruit(f) ? 'fruit' : 'veg') : f.cat;
-const FOOD_GROUPS = [['protein','Protein'],['carb','Carbs'],['fruit','Fruit'],['veg','Vegetables'],['fat','Fats, nuts & cheese']];
+const grpOf = f => f.mode === 'addon' ? 'addon' : f.cat === 'veg' ? (isFruit(f) ? 'fruit' : 'veg') : f.cat;
+const FOOD_GROUPS = [['protein','Protein'],['carb','Carbs'],['fruit','Fruit'],['veg','Vegetables'],['fat','Fats, nuts & cheese'],['addon','Add-ons']];
 const CAT_CHOICES = [['protein','Protein'],['carb','Carb'],['fruit','Fruit'],['veg','Vegetable'],['fat','Fat or cheese']];
 const MEAL_FILTERS = [['all','All'],['b','Breakfast'],['m','Lunch / dinner'],['s','Snack']];
-let openGrp = {}, comboReady = false;
+let openGrp = {}, comboReady = false, openFood = {};
 const grpOpen = g => foodQ ? true : (openGrp[g] !== undefined ? openGrp[g] : foodMeal !== 'all');
 function inMeal(f, k){
   const ms = S.settings.meals.filter(m => kindOf(m) === k);
@@ -1488,7 +1533,7 @@ function recipeModal(di, mi){
   const m = S.plan.list[di][mi], st = S.settings, u = recipeUrls();
   const chips = (list, cur, act, fmt) => list.map(x => `<button class="chip ${cur===x?'on':''}" data-act="${act}" data-v="${x}">${fmt?fmt(x):x}</button>`).join('');
   openModal(`<h3>Find a recipe: ${esc(m.name)}</h3>
-   <div class="mut">${m.items.map(it => `${esc(foodById(it.id)?.name||'?')} ${it.g} g`).join(', ')}</div>
+   <div class="mut">${m.items.map(it => `${esc(foodById(it.id)?.name||'?')} ${qtyLabel(it)}`).join(', ')}</div>
    <div class="mut" style="margin:14px 0 2px;font-weight:600">Cooking method</div>
    <div class="chips">${chips(['Any','Stovetop','Oven','Slow cooker','Air fryer','No-cook'], st.method, 'rmethod')}</div>
    <div class="mut" style="margin:10px 0 2px;font-weight:600">Time</div>
@@ -1680,6 +1725,9 @@ document.addEventListener('click', async e => {
     case 'fmeal': foodMeal = el.dataset.v; openGrp = {}; render(); break;
     case 'grp': { const g = el.dataset.g, cur = el.closest('.grp').classList.contains('open'); openGrp[g] = !cur; const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'gtick': case 'gclear': { const on = a === 'gtick'; S.foods.filter(f => grpOf(f) === el.dataset.g && foodShown(f)).forEach(f => f.on = on); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'fopt': openFood[el.dataset.id] = !openFood[el.dataset.id]; { const y = window.scrollY; render(); window.scrollTo(0, y); } break;
+    case 'fmode': { const f = foodById(el.dataset.id); f.mode = el.dataset.v; if(f.mode === 'units' && !f.unit) f.unit = {g:50, label:'unit', plural:'units', min:1, max:4}; if(f.mode === 'addon' && !f.addG) f.addG = 10; if(f.mode === 'addon') S.settings.meals.forEach(m => { m.must = (m.must || []).filter(x => x !== f.id); }); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'flock': { const f = foodById(el.dataset.id), m = S.settings.meals.find(x => x.id === el.dataset.m); m.must = m.must || []; if(m.must.includes(f.id)) m.must = m.must.filter(x => x !== f.id); else { m.must.push(f.id); f.on = true; f.use = f.use || {}; S.settings.meals.forEach(mm => { if(f.use[mm.id] === undefined) f.use[mm.id] = allowed(f, mm); }); f.use[m.id] = true; } save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'cready_only': comboReady = !comboReady; render(); break;
     case 'assoc': S.settings.assoc = el.dataset.v; save(); render(); break;
     case 'cnew': comboNew(); break;
@@ -1760,6 +1808,17 @@ document.addEventListener('change', e => {
   if(a === 'sprice'){ const f = foodById(el.dataset.id), v = parseFloat(el.value); if(v > 0) f.sp[storeSel] = {now:v, at:today()}; else delete f.sp[storeSel]; save(); }
   if(a === 'gkey'){ st.gkey = el.value.trim(); save(); }
   if(a === 'pstore'){ storeSel = el.value; render(); }
+  if(['u_g','u_label','u_min','u_max','f_addg'].includes(a)){
+    const f = foodById(el.dataset.id); f.unit = f.unit || {g:50, label:'unit', plural:'units', min:1, max:4};
+    const v = parseFloat(el.value);
+    if(a === 'u_g' && v > 0) f.unit.g = v;
+    if(a === 'u_label' && el.value.trim()){ f.unit.label = el.value.trim(); f.unit.plural = plural(f.unit.label); }
+    if(a === 'u_min' && v >= 1) f.unit.min = Math.round(v);
+    if(a === 'u_max' && v >= 1) f.unit.max = Math.round(v);
+    if(f.unit.max < f.unit.min) f.unit.max = f.unit.min;
+    if(a === 'f_addg' && v > 0) f.addG = v;
+    save();
+  }
   if(a === 'ce_add' && el.value){ syncEdit(); const sl = cEdit.slots[+el.dataset.s]; if(!sl.ids.includes(el.value)) sl.ids.push(el.value); comboModal(); }
   if(a === 'ce_opt'){ syncEdit(); cEdit.slots[+el.dataset.s].opt = el.checked; }
   if(a === 'sheet'){ st.sheetUrl = el.value.trim(); save(); }
