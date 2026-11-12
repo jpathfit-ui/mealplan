@@ -145,6 +145,10 @@ details summary{cursor:pointer;color:var(--acc);font-weight:600;font-size:14px}
 .stop{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px}
 .stoph{display:flex;justify-content:space-between;gap:8px}
 .stoph span{font-variant-numeric:tabular-nums;font-weight:600}
+.cb{padding:12px 0;border-top:1px dashed var(--line)}
+.cslot{border:1px solid var(--line);border-radius:14px;padding:8px 10px;margin:8px 0}
+label.f textarea{display:block;width:100%;margin-top:4px}
+.sug button b{font-weight:600}
 .vid{background:#1d2a21;border-radius:14px;overflow:hidden;aspect-ratio:4/3}
 .vid video{width:100%;height:100%;object-fit:cover;display:block}
 .sblock{border-top:1px dashed var(--line)}
@@ -295,7 +299,7 @@ const STARTER = [
  ['Feta','fat',264,14,4,21,20,50,'bms'],
  ['Parmesan','fat',431,38,4,29,30,30,'bms']
 ];
-const DEFAULT_ON = ['Chicken breast (raw)','Canned tuna (drained)','Eggs','Pasta (dry)','White rice (dry)','Rolled oats (dry)','Broccoli','Carrots','Spinach','Banana','Olive oil'];
+const DEFAULT_ON = ['Chicken breast (raw)','Canned tuna (drained)','Eggs','Pasta (dry)','White rice (dry)','Rolled oats (dry)','Broccoli','Carrots','Spinach','Banana','Olive oil','Milk, 2%','Whole wheat bread','Greek yogurt, 0%','Peanut butter','Apple','Cheddar cheese','Potatoes'];
 const KINDS = {'Chicken breast (raw)':'m','Ground beef, lean (raw)':'m','Pork loin (raw)':'m','Salmon fillet (raw)':'m','Canned tuna (drained)':'m','Eggs':'bms','Firm tofu':'bm','Greek yogurt, 0%':'bs','Lentils (dry)':'m','Black beans (dry)':'m','Pasta (dry)':'m','White rice (dry)':'m','Rolled oats (dry)':'bs','Potatoes':'bm','Whole wheat bread':'bms','Broccoli':'m','Spinach':'bm','Carrots':'ms','Bell pepper':'bm','Onion':'m','Tomatoes':'bm','Frozen mixed vegetables':'m','Banana':'bs','Apple':'bs','Olive oil':'bms','Canola oil':'bms','Butter':'bm','Peanut butter':'bs','Cheddar cheese':'bms'};
 const kindOf = m => m.type === 'snack' ? 's' : /break/i.test(m.name) ? 'b' : 'm';
 const PRESET_STORES = ['No Frills','Walmart','Metro','Costco','FreshCo','Food Basics','Loblaws','Real Canadian Superstore','Sobeys','Farm Boy','Zehrs','Fortinos','Giant Tiger','T&T Supermarket',"Longo's"];
@@ -323,6 +327,67 @@ const SNACK_TEMPLATES = [
 
 const mkFood = r => ({id: uid(), name:r[0], cat:r[1], k:r[2], p:r[3], c:r[4], f:r[5], price:r[6], maxg:r[7]||null, avg:null, n:0, sp:{}, on: DEFAULT_ON.includes(r[0]), kinds: r[8] || KINDS[r[0]] || null, use:null});
 const SEED_V = 2;
+
+/* ---------- combos (associations): foods that belong together in a meal ---------- */
+// name, meal kinds (b/m/s), served, slots. A slot is 'any|of|these' foods; a leading ? makes the slot optional.
+const COMBO_SEEDS = [
+ ['Breakfast sandwich','b','hot',['English muffin|Bagel, plain|Sourdough bread','Eggs|Egg whites (liquid)','Cheddar cheese|Swiss cheese|Provolone|Colby Jack cheese|Mozzarella, part-skim','?Ham, sliced|Roast beef, sliced|Chicken deli meat, sliced|Turkey deli meat, sliced','?Spinach|Tomatoes|Mushrooms','?Banana|Orange|Apple|Strawberries|Blueberries']],
+ ['Scrambled eggs & toast','b','hot',['Eggs|Egg whites (liquid)','Whole wheat bread|Sourdough bread|English muffin','?Cheddar cheese|Feta|Mozzarella, part-skim','?Spinach|Tomatoes|Mushrooms|Bell pepper|Onion|Green onions','?Butter|Olive oil|Avocado','?Banana|Orange|Apple|Strawberries|Blueberries|Grapes']],
+ ['Veggie omelette','bm','hot',['Eggs|Egg whites (liquid)','Spinach|Mushrooms|Bell pepper|Tomatoes|Onion','?Feta|Cheddar cheese|Goat cheese|Mozzarella, part-skim','?Whole wheat bread|Sourdough bread|Potatoes|Sweet potato','?Olive oil|Butter|Avocado']],
+ ['Avocado toast & egg','bm','hot',['Sourdough bread|Whole wheat bread','Avocado','Eggs|Egg whites (liquid)','?Tomatoes|Spinach','?Feta|Cheddar cheese']],
+ ['Breakfast burrito','bm','hot',['Whole wheat tortilla','Eggs|Egg whites (liquid)','Cheddar cheese|Colby Jack cheese|Mozzarella, part-skim','Bell pepper|Onion|Spinach|Tomatoes|Mushrooms','?Black beans (dry)|Potatoes|Sweet potato','?Ham, sliced|Chicken deli meat, sliced']],
+ ['Sweet potato hash & eggs','b','hot',['Sweet potato|Potatoes','Eggs|Egg whites (liquid)','Onion|Bell pepper|Mushrooms|Spinach','?Ham, sliced|Roast beef, sliced','?Olive oil|Butter']],
+ ['Deli sandwich','bm','cold',['Chicken deli meat, sliced|Turkey deli meat, sliced|Ham, sliced|Roast beef, sliced','Whole wheat bread|Sourdough bread|English muffin|Bagel, plain|Whole wheat tortilla','Cheddar cheese|Swiss cheese|Provolone|Mozzarella, part-skim|Gouda','?Tomatoes|Cucumber|Spinach|Mixed salad greens|Romaine lettuce','?Apple|Grapes|Orange|Carrots|Celery']],
+ ['Bagel & cream cheese','b','cold',['Bagel, plain|English muffin|Sourdough bread','Cream cheese','Ham, sliced|Chicken deli meat, sliced|Turkey deli meat, sliced|Eggs|Egg whites (liquid)|Cottage cheese, 2%','?Tomatoes|Cucumber','?Banana|Orange|Apple|Strawberries|Blueberries|Grapes']],
+ ['Overnight oats','bs','cold',['Rolled oats (dry)','Greek yogurt, 0%|Greek yogurt, 2%|High protein milk, 0%|High protein milk, 2%|Milk, 2%|Milk, skim','Blueberries|Strawberries|Raspberries|Banana|Frozen mixed berries|Frozen strawberries','?Chia seeds|Almonds|Walnuts|Peanut butter|Almond butter','?Whey protein blend (powder)']],
+ ['Oatmeal bowl','b','hot',['Rolled oats (dry)','Milk, 2%|Milk, skim|High protein milk, 0%|High protein milk, 2%','Banana|Apple|Blueberries|Strawberries|Pears|Peaches','?Peanut butter|Almond butter|Walnuts|Almonds|Chia seeds','?Whey protein blend (powder)|Greek yogurt, 0%|Eggs']],
+ ['Yogurt parfait','bs','cold',['Greek yogurt, 0%|Greek yogurt, 2%','Granola|Cereal, bran flakes|Cereal, protein crunch|Rolled oats (dry)','Blueberries|Strawberries|Raspberries|Banana|Mango|Frozen mixed berries|Peaches','?Almonds|Walnuts|Chia seeds']],
+ ['Cottage cheese & fruit','bs','cold',['Cottage cheese, 2%|Ricotta, part-skim','Pineapple|Peaches|Blueberries|Strawberries|Cantaloupe|Pears|Mango|Kiwi','?Whole wheat bread|Sourdough bread|Granola','?Almonds|Walnuts|Chia seeds']],
+ ['Protein smoothie','bs','cold',['Whey protein blend (powder)|Greek yogurt, 0%|Greek yogurt, 2%|High protein milk, 0%','Milk, 2%|Milk, skim|High protein milk, 2%|High protein milk, 0%','Banana|Frozen mixed berries|Frozen strawberries|Frozen mango|Mango','?Peanut butter|Almond butter|Rolled oats (dry)','?Spinach']],
+ ['Cereal & milk','bs','cold',['Cereal, bran flakes|Cereal, protein crunch|Granola','Milk, 2%|Milk, skim|High protein milk, 0%|High protein milk, 2%','?Banana|Strawberries|Blueberries','?Eggs|Egg whites (liquid)|Greek yogurt, 0%|Cottage cheese, 2%|Whey protein blend (powder)']],
+ ['Peanut butter toast & banana','bs','cold',['Whole wheat bread|Sourdough bread|English muffin','Peanut butter|Almond butter','Banana|Apple|Strawberries','Greek yogurt, 0%|Greek yogurt, 2%|Eggs|Cottage cheese, 2%|High protein milk, 0%|Milk, 2%']],
+ ['Chicken, rice & veg','m','hot',['Chicken breast (raw)|Chicken thigh, boneless (raw)','White rice (dry)|Brown rice (dry)|Quinoa (dry)','Broccoli|Green beans|Carrots|Frozen mixed vegetables|Zucchini|Asparagus|Cauliflower','?Olive oil|Canola oil|Butter']],
+ ['Stir-fry','m','hot',['Chicken breast (raw)|Beef sirloin steak (raw)|Shrimp, frozen cooked|Firm tofu|Pork loin (raw)','White rice (dry)|Brown rice (dry)|Quinoa (dry)','Broccoli|Bell pepper|Carrots|Mushrooms|Cabbage|Green beans|Frozen mixed vegetables','?Onion|Green onions','?Canola oil|Olive oil']],
+ ['Pasta with meat sauce','m','hot',['Pasta (dry)|Whole wheat pasta (dry)','Ground beef, lean (raw)|Ground beef, extra lean (raw)|Ground turkey, lean (raw)','Tomatoes|Onion|Mushrooms|Zucchini|Spinach|Bell pepper','?Parmesan|Mozzarella, part-skim','?Olive oil']],
+ ['Tacos / burrito bowl','m','hot',['Ground beef, lean (raw)|Ground beef, extra lean (raw)|Ground turkey, lean (raw)|Chicken breast (raw)|Chicken thigh, boneless (raw)','Whole wheat tortilla|White rice (dry)|Brown rice (dry)','Bell pepper|Tomatoes|Onion|Romaine lettuce|Corn, frozen','?Black beans (dry)','?Cheddar cheese|Colby Jack cheese|Avocado']],
+ ['Baked salmon, potatoes & greens','m','hot',['Salmon fillet (raw)|Cod fillet (raw)|Tilapia fillet (raw)','Potatoes|Sweet potato|Brown rice (dry)|White rice (dry)|Quinoa (dry)','Asparagus|Broccoli|Green beans|Brussels sprouts|Zucchini','?Olive oil|Butter']],
+ ['Air fryer fish & veg','m','hot',['Pan-seared salmon (frozen, air fryer)|Pan-seared sole (frozen, air fryer)|Breaded fish sticks (frozen)','Potatoes|Sweet potato|White rice (dry)|Brown rice (dry)','Broccoli|Green beans|Peas, frozen|Corn, frozen|Carrots','?Olive oil']],
+ ['Air fryer chicken strips & veg','m','hot',['Breaded chicken strips (frozen)','Potatoes|Sweet potato|White rice (dry)','Broccoli|Green beans|Peas, frozen|Corn, frozen|Carrots','?Olive oil']],
+ ['Tuna salad bowl','m','cold',['Canned tuna (drained)','Pasta (dry)|Whole wheat pasta (dry)|Quinoa (dry)|Whole wheat bread|Whole wheat tortilla','Cucumber|Tomatoes|Celery|Romaine lettuce|Mixed salad greens|Bell pepper|Onion','?Olive oil|Avocado']],
+ ['Chicken salad','m','cold',['Chicken breast (raw)|Chicken deli meat, sliced','?Quinoa (dry)|Whole wheat bread|Brown rice (dry)','Mixed salad greens|Romaine lettuce|Spinach|Kale','Tomatoes|Cucumber|Carrots|Bell pepper','Olive oil|Avocado|Feta|Almonds']],
+ ['Ground beef, potatoes & veg','m','hot',['Ground beef, lean (raw)|Ground beef, extra lean (raw)|Ground turkey, lean (raw)','Potatoes|Sweet potato','Broccoli|Green beans|Carrots|Peas, frozen|Corn, frozen','?Cheddar cheese']],
+ ['Lentil / bean chili','m','hot',['Lentils (dry)|Black beans (dry)|Chickpeas (dry)','White rice (dry)|Brown rice (dry)|Potatoes','Tomatoes|Onion|Carrots|Bell pepper|Celery|Frozen mixed vegetables','?Ground beef, lean (raw)|Ground beef, extra lean (raw)|Ground turkey, lean (raw)|Chicken breast (raw)','?Cheddar cheese|Olive oil']],
+ ['Sheet-pan chicken & veg','m','hot',['Chicken thigh, boneless (raw)|Chicken breast (raw)|Pork loin (raw)','Potatoes|Sweet potato|Butternut squash','Broccoli|Brussels sprouts|Carrots|Cauliflower|Zucchini|Bell pepper|Onion','?Olive oil']],
+ ['Steak, potatoes & greens','m','hot',['Beef sirloin steak (raw)','Potatoes|Sweet potato','Asparagus|Broccoli|Green beans|Mushrooms|Spinach','?Butter|Olive oil']],
+ ['Shrimp pasta / rice','m','hot',['Shrimp, frozen cooked','White rice (dry)|Brown rice (dry)|Pasta (dry)|Whole wheat pasta (dry)|Quinoa (dry)','Zucchini|Asparagus|Broccoli|Peas, frozen|Tomatoes|Spinach|Mushrooms','?Olive oil|Butter|Parmesan']],
+ ['Egg fried rice','m','hot',['Eggs|Egg whites (liquid)','White rice (dry)|Brown rice (dry)','Peas, frozen|Carrots|Frozen mixed vegetables|Corn, frozen|Green onions','?Chicken breast (raw)|Shrimp, frozen cooked|Ham, sliced|Firm tofu','?Canola oil']],
+ ['Tofu stir-fry','m','hot',['Firm tofu','White rice (dry)|Brown rice (dry)|Quinoa (dry)','Broccoli|Bell pepper|Carrots|Mushrooms|Cabbage|Green beans','?Canola oil|Olive oil|Peanut butter']],
+ ['Pork, potatoes & veg','m','hot',['Pork loin (raw)','Potatoes|Sweet potato|Brown rice (dry)','Green beans|Cabbage|Carrots|Brussels sprouts|Broccoli','?Butter|Olive oil']],
+ ['Stuffed sweet potato','m','hot',['Chicken breast (raw)|Ground turkey, lean (raw)|Black beans (dry)|Canned tuna (drained)','Sweet potato','Broccoli|Spinach|Corn, frozen|Bell pepper','?Cheddar cheese|Greek yogurt, 0%|Avocado']],
+ ['Lentil or chickpea curry','m','hot',['Lentils (dry)|Chickpeas (dry)','White rice (dry)|Brown rice (dry)|Quinoa (dry)','Spinach|Cauliflower|Tomatoes|Carrots|Onion|Kale','?Chicken breast (raw)|Chicken thigh, boneless (raw)|Firm tofu','?Olive oil|Canola oil']],
+ ['Greek chicken plate','m','hot',['Chicken breast (raw)|Chicken thigh, boneless (raw)','Quinoa (dry)|Brown rice (dry)|Potatoes|Whole wheat tortilla','Cucumber|Tomatoes|Onion|Romaine lettuce|Mixed salad greens','Feta|Olive oil|Avocado']],
+ ['Fish tacos','m','hot',['Cod fillet (raw)|Tilapia fillet (raw)|Pan-seared sole (frozen, air fryer)|Shrimp, frozen cooked','Whole wheat tortilla','Cabbage|Romaine lettuce|Tomatoes|Onion|Green onions','?Avocado|Greek yogurt, 0%']],
+ ['Apple & peanut butter','s','cold',['Apple|Banana|Pears','Peanut butter|Almond butter']],
+ ['Greek yogurt & berries','s','cold',['Greek yogurt, 0%|Greek yogurt, 2%','Blueberries|Strawberries|Raspberries|Frozen mixed berries|Mango','?Granola|Almonds|Chia seeds']],
+ ['Cheese & fruit','s','cold',['Cheddar cheese|Swiss cheese|Gouda|Provolone|Mozzarella, part-skim|Colby Jack cheese','Apple|Grapes|Pears|Orange','?Almonds|Walnuts']],
+ ['Protein shake','s','cold',['Whey protein blend (powder)','Milk, skim|Milk, 2%|High protein milk, 0%|High protein milk, 2%','?Banana|Frozen mixed berries|Frozen mango|Frozen strawberries']],
+ ['Deli roll-ups & veg','s','cold',['Ham, sliced|Turkey deli meat, sliced|Chicken deli meat, sliced|Roast beef, sliced','?Swiss cheese|Provolone|Cream cheese|Mozzarella, part-skim','Cucumber|Celery|Carrots|Bell pepper|Tomatoes']],
+ ['Eggs & fruit','s','cold',['Eggs','Apple|Orange|Grapes|Banana|Strawberries','?Almonds']],
+ ['Nuts & fruit','s','cold',['Almonds|Walnuts','Apple|Grapes|Banana|Orange|Pears','?Cheddar cheese|Mozzarella, part-skim']]
+];
+function seedCombos(foods, only){
+  const byName = new Map(foods.map(f => [f.name.toLowerCase(), f.id]));
+  const out = [];
+  COMBO_SEEDS.forEach(([name, kinds, temp, slots]) => {
+    if(only && !only.has(name)) return;
+    const sl = slots.map(str => { const opt = str[0] === '?'; const ids = (opt ? str.slice(1) : str).split('|').map(n => byName.get(n.toLowerCase())).filter(Boolean); return {ids, opt}; })
+      .filter(x => x.ids.length || x.opt);
+    if(sl.filter(x => x.ids.length && !x.opt).length < 1) return;
+    out.push({id:uid(), name, kinds, temp, slots: sl.filter(x => x.ids.length), note:'', src:'seed', seed:name, on:true});
+  });
+  return out;
+}
+
 function defaultState(){
   const foods = STARTER.map(mkFood);
   return {
@@ -330,9 +395,9 @@ function defaultState(){
       kcal:2000, pPct:30, cPct:40, fPct:30, dayVar:10, mealVar:20, ceiling:true,
       meals:[{id:uid(),name:'Breakfast',type:'big',temp:'any'},{id:uid(),name:'Lunch',type:'light',temp:'any'},{id:uid(),name:'Dinner',type:'big',temp:'any'}],
       days:7, rotate:1, temp:'any', method:'Any', time:'Any', budget:0,
-      stores:['No Frills','Walmart','Metro','Costco'], primary:'No Frills', trip:5, pick:'best', perKm:0.65, home:{text:'',lat:null,lon:null}, storeInfo:{}, sheetUrl:'', gkey:''
+      stores:['No Frills','Walmart','Metro','Costco'], primary:'No Frills', trip:5, pick:'best', perKm:0.65, home:{text:'',lat:null,lon:null}, storeInfo:{}, sheetUrl:'', gkey:'', assoc:'strict'
     },
-    foods, plan:null, history:[], log:[], done:{}, seedV:SEED_V
+    foods, combos: seedCombos(foods), plan:null, history:[], log:[], done:{}, seedV:SEED_V
   };
 }
 function loadState(){
@@ -349,13 +414,14 @@ function loadState(){
         STARTER.forEach(r => { if(!have.has(r[0].toLowerCase())) out.foods.push(mkFood(r)); });
         out.seedV = SEED_V;
       }
+      if(!Array.isArray(o.combos)) out.combos = seedCombos(out.foods);
       return out;
     }
   }catch(e){}
   return d;
 }
 let S = loadState();
-let view = 'plan', storeSel = null, foodQ = '';
+let view = 'plan', storeSel = null, foodQ = '', foodTab = 'foods', foodMeal = 'all';
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 const foodById = id => S.foods.find(f => f.id === id);
 
@@ -416,11 +482,75 @@ function templatesFor(type, temp){
   const l2 = list.filter(t => temp === 'any' || t.temp === temp);
   return l2.length ? l2 : list;
 }
+const mealErr = (t, T) => 2*((t.k-T.k)/T.k)**2 + 1.5*((t.p-T.p)/Math.max(T.p,12))**2 + ((t.c-T.c)/Math.max(T.c,15))**2 + ((t.f-T.f)/Math.max(T.f,6))**2;
+const comboById = id => (S.combos || []).find(c => c.id === id);
+function comboOptions(c, slot, opt){
+  const out = [];
+  for(const sl of c.slots){
+    let arr = sl.ids.map(foodById).filter(f => f && f.on && allowed(f, slot));
+    if(opt && opt.exclude){ const a2 = arr.filter(f => f.id !== opt.exclude[f.cat]); if(a2.length) arr = a2; }
+    if(!arr.length){ if(sl.opt) continue; return null; }
+    out.push({arr, opt: !!sl.opt, i: c.slots.indexOf(sl)});
+  }
+  return out.some(x => !x.opt) ? out : null;
+}
+function comboFits(c, slot, temp){
+  if(c.on === false || !c.kinds.includes(kindOf(slot))) return false;
+  // breakfast-or-lunch defaults stay out of dinner slots (saved and your own combos are left alone)
+  if(c.src === 'seed' && c.kinds.includes('b') && c.kinds.includes('m') && /dinner|supper/i.test(slot.name)) return false;
+  return temp === 'any' || c.temp === 'any' || c.temp === temp;
+}
+function comboCands(slot, T, opt, recent, temp, lo, hi){
+  const st = S.settings, force = opt.force ? foodById(opt.force) : null;
+  const list = opt.combo ? [comboById(opt.combo)].filter(Boolean) : (S.combos || []).filter(c => comboFits(c, slot, temp));
+  const cands = [], seen = new Set();
+  for(const c of list){
+    const sl = comboOptions(c, slot, opt); if(!sl) continue;
+    if(force && !sl.some(x => x.arr.some(f => f.id === force.id))) continue;
+    const tries = c.ratio ? 1 : 6;
+    for(let n=0; n<tries; n++){
+      const items = [];
+      for(const x of sl){
+        if(x.opt && !c.ratio && Math.random() > 0.65 && !(force && x.arr.some(f => f.id === force.id))) continue;
+        items.push(force && x.arr.some(f => f.id === force.id) ? force : (c.ratio ? x.arr[0] : pick(x.arr)));
+      }
+      const uniq = [...new Map(items.map(f => [f.id, f])).values()];
+      if(!uniq.length) continue;
+      const sig = uniq.map(f => f.id).sort().join('|');
+      if(seen.has(sig)) continue; seen.add(sig);
+      if(opt.avoid && sig === opt.avoid) continue;
+      let g, score, tt;
+      if(c.ratio){
+        const base = uniq.map(f => { const k = c.slots.findIndex(s2 => s2.ids.includes(f.id)); return c.ratio[k] || 100; });
+        const k0 = totals(uniq, base).k || 1, sc = Math.max(.4, Math.min(2.5, T.k / k0));
+        g = base.map(x => Math.max(5, Math.round(x * sc / 5) * 5)); tt = totals(uniq, g); score = mealErr(tt, T);
+      } else { const o = optimize(uniq, T, opt.force); g = o.g; tt = totals(uniq, g); score = o.err; }
+      uniq.forEach(f => { score += 0.015 * ((recent && recent[f.id]) || 0); });
+      if(c.src === 'saved') score *= 0.5;
+      cands.push({t:{n:c.name, temp: c.temp === 'any' ? '' : c.temp}, items:uniq, g, tt, score, sig, combo:c.id, inK: tt.k >= lo && tt.k <= hi});
+    }
+  }
+  return cands;
+}
 function solveMeal(slot, T, pool, opt, recent){
   const st = S.settings;
   const temp = opt.temp || slot.temp || 'any';
-  const tpls = templatesFor(slot.type, temp);
   const lo = T.k * (1 - st.mealVar/100), hi = st.ceiling ? T.k*(1+st.mealVar/200) : T.k*(1 + st.mealVar/100);
+  const mode = opt.combo ? 'only' : (st.assoc || 'strict');
+  const pickBest = cands => {
+    let usable = cands.filter(c => c.inK);
+    if(!usable.length) usable = cands;
+    usable.sort((a,b) => a.score - b.score);
+    return pick(usable.slice(0, Math.min(5, usable.length)));
+  };
+  const out = (c, free) => ({name: slot.name, type: slot.type, want: temp, tpl: c.t.n, temp: c.t.temp, sig: c.sig, combo: c.combo || null, cname: c.combo ? c.t.n : null, free: !!free,
+          items: c.items.map((f,i) => ({id:f.id, g:c.g[i]})), tot: c.tt});
+  let cc = [];
+  if(mode !== 'free') cc = comboCands(slot, T, opt, recent, temp, lo, hi);
+  if(mode === 'only') return cc.length ? out(pickBest(cc)) : null;
+  if(mode === 'strict' && cc.length) return out(pickBest(cc));
+  if(mode === 'prefer' && cc.length && Math.random() < 0.75) return out(pickBest(cc));
+  const tpls = templatesFor(slot.type, temp);
   const force = opt.force ? foodById(opt.force) : null;
   const seen = new Set(), cands = [];
   for(let n=0; n<90; n++){
@@ -449,13 +579,7 @@ function solveMeal(slot, T, pool, opt, recent){
     cands.push({t, items:uniq, g:o.g, tt, score, sig, inK: tt.k >= lo && tt.k <= hi});
   }
   if(!cands.length) return null;
-  let usable = cands.filter(c => c.inK);
-  if(!usable.length) usable = cands;
-  usable.sort((a,b) => a.score - b.score);
-  const top = usable.slice(0, Math.min(5, usable.length));
-  const c = pick(top);
-  return {name: slot.name, type: slot.type, want: temp, tpl: c.t.n, temp: c.t.temp, sig: c.sig,
-          items: c.items.map((f,i) => ({id:f.id, g:c.g[i]})), tot: c.tt};
+  return out(pickBest(cands), mode === 'strict');
 }
 function targets(){
   const st = S.settings;
@@ -504,6 +628,8 @@ function generate(){
     d.forEach(m => m.items.forEach(it => recent[it.id] = (recent[it.id]||0)+1));
     days.push(d);
   }
+  const freeNames = [...new Set(days.flat().filter(m => m.free).map(m => m.name))];
+  generate.note = freeNames.length ? `No combo fits ${freeNames.join(', ')} with your ticked foods, so it used a free mix. Tick more foods or add a combo.` : '';
   S.plan = {created: today(), days:st.days, rotate:R, list:days, snap:{kcal:st.kcal,pPct:st.pPct,cPct:st.cPct,fPct:st.fPct}};
   S.done = {};
   const row = planRow();
@@ -664,10 +790,10 @@ function vPlan(){
     <div class="nums" style="margin:0 0 4px">P ${Math.round(t.p)} g · C ${Math.round(t.c)} g · F ${Math.round(t.f)} g</div>`;
     d.forEach((m,mi) => {
             h += `<div class="meal ${mi===0?'first':''}"><div class="nm"><span class="mn">${esc(m.name)}</span><span class="mk">${Math.round(m.tot.k)}<small> kcal</small></span></div>
-       <div class="mt">${m.type==='snack'?'Snack':m.type==='big'?'Big meal':'Light meal'}${m.want&&m.want!=='any'?' · '+(m.want==='hot'?'Hot':'Cold'):''}</div>
+       <div class="mt">${m.cname?`<b>${esc(m.cname)}</b> · `:''}${m.type==='snack'?'Snack':m.type==='big'?'Big meal':'Light meal'}${m.want&&m.want!=='any'?' · '+(m.want==='hot'?'Hot':'Cold'):''}</div>
        ${m.items.map(it => `<div class="ing"><span>${esc(foodById(it.id)?.name||'?')}</span><b>${it.g} g</b></div>`).join('')}
        <div class="nums">P ${Math.round(m.tot.p)} · C ${Math.round(m.tot.c)} · F ${Math.round(m.tot.f)}</div>
-       <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">Find a recipe</button></div></div>`;
+       <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">Find a recipe</button><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button>${(comboById(m.combo)||{}).note ? `<button class="s" data-act="showrecipe" data-id="${m.combo}">Saved recipe</button>` : ''}</div></div>`;
     });
     h += `</div>`;
   });
@@ -781,15 +907,32 @@ function vCompare(L){
 function allocRow(f){
   return `<div class="alloc">${S.settings.meals.map(m => `<button class="chip sm ${allowed(f,m)?'on':''}" data-act="alloc" data-id="${f.id}" data-m="${m.id}">${esc(m.name)}</button>`).join('')}</div>`;
 }
-function vFoods(){
+const MEAL_FILTERS = [['all','All'],['b','Breakfast'],['m','Lunch & dinner'],['s','Snack']];
+function foodShown(f){
+  if(foodQ && !f.name.toLowerCase().includes(foodQ.toLowerCase())) return false;
+  if(foodMeal === 'x') return !!f.on;
+  if(foodMeal !== 'all' && f.kinds && !f.kinds.includes(foodMeal)) return false;
+  return true;
+}
+function foodTabs(){
+  const n = (S.combos || []).length;
+  return `<div class="chips" style="margin:0 0 10px"><button class="chip ${foodTab==='foods'?'on':''}" data-act="ftab" data-v="foods">Foods ${S.foods.length}</button><button class="chip ${foodTab==='combos'?'on':''}" data-act="ftab" data-v="combos">Combos ${n}</button></div>`;
+}
+function filterChips(last){
+  return `<div class="chips">${MEAL_FILTERS.map(([k,l]) => `<button class="chip sm ${foodMeal===k?'on':''}" data-act="fmeal" data-v="${k}">${l}</button>`).join('')}<button class="chip sm ${foodMeal==='x'?'on':''}" data-act="fmeal" data-v="x">${last}</button></div>`;
+}
+function vFoods(){ return foodTabs() + (foodTab === 'combos' ? vCombos() : vFoodList()); }
+function vFoodList(){
   const st = S.settings;
   if(!storeSel || !st.stores.includes(storeSel)) storeSel = st.primary;
   let h = `<div class="card"><h2>Foods you will buy</h2><div class="mut">Tick what you are shopping for. Under each ticked food, choose which meals it can appear in. Prices are per kg.</div>
    <div class="row" style="margin-top:10px"><input id="food_q" type="search" autocomplete="off" placeholder="Search foods" value="${esc(foodQ)}" style="flex:1"><button class="g" data-act="scan">Scan barcode</button></div>
+   ${filterChips('Ticked')}
+   <div class="row" style="margin:6px 0 4px"><button class="s sm" data-act="tickall">Tick all shown</button><button class="s sm" data-act="clearall">Clear all shown</button><span class="mut" style="margin-left:auto">${S.foods.filter(f => foodShown(f) && f.on).length} of ${S.foods.filter(foodShown).length} shown ticked</span></div>
    <div class="chips" style="margin-top:10px">${st.stores.map(s => `<button class="chip ${s===storeSel?'on':''}" data-act="store" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
    <div class="fr" style="border:0;padding-bottom:0"><span></span><span class="mut">Food</span><span class="mut" style="text-align:right">Typical</span><span class="mut" style="text-align:right">${esc(storeSel)}</span></div>`;
   ['protein','carb','veg','fat'].forEach(cat => {
-    const fs = S.foods.filter(f => f.cat === cat && (!foodQ || f.name.toLowerCase().includes(foodQ.toLowerCase())));
+    const fs = S.foods.filter(f => f.cat === cat && foodShown(f));
     h += `<div class="mut cath" style="margin-top:10px;font-weight:600">${CAT_LABEL[cat]} <span class="mut" style="font-weight:400">${fs.length}</span></div>`;
     fs.forEach(f => {
       const sp = f.sp[storeSel] && f.sp[storeSel].now;
@@ -1158,11 +1301,118 @@ function removeStore(name){
 function openModal(html){ $('#modal').innerHTML = `<div class="modal" data-act="mclose"><div class="sheet">${html}</div></div>`; }
 function closeModal(){ stopScan(); $('#modal').innerHTML = ''; }
 
+
+/* ---------- combos UI ---------- */
+const cleanName = n => n.replace(/ \((raw|dry|drained|frozen[^)]*)\)/g, '');
+function comboSummary(c){
+  return c.slots.map(sl => {
+    const names = sl.ids.map(foodById).filter(Boolean).map(f => cleanName(f.name));
+    const shown = names.slice(0, 3).join(' / ') + (names.length > 3 ? ' / ...' : '');
+    return sl.opt ? `(${shown})` : shown;
+  }).join(' + ');
+}
+function comboNeeds(c){
+  return c.slots.filter(sl => !sl.opt && !sl.ids.some(id => (foodById(id) || {}).on)).map(sl => cleanName((foodById(sl.ids[0]) || {name:'?'}).name));
+}
+function vCombos(){
+  const st = S.settings, mode = st.assoc || 'strict';
+  const list = (S.combos || []).filter(c => (foodMeal === 'all' || foodMeal === 'x' || c.kinds.includes(foodMeal)) && (foodMeal !== 'x' || !comboNeeds(c).length) && (!foodQ || c.name.toLowerCase().includes(foodQ.toLowerCase())));
+  let h = `<div class="card"><h2>Combos</h2><div class="mut">Foods that belong together. When you generate a plan, each meal is built from a combo, so you get a breakfast sandwich instead of whey with a tortilla. A combo needs at least one ticked food in each non-optional slot.</div>
+   <div class="mut" style="margin:12px 0 2px;font-weight:600">How to build meals</div>
+   <div class="chips">${[['strict','Combos only'],['prefer','Prefer combos'],['free','Free mix']].map(([k,l]) => `<button class="chip ${mode===k?'on':''}" data-act="assoc" data-v="${k}">${l}</button>`).join('')}</div>
+   <div class="mut">${mode==='strict'?'Meals only come from combos. If none fits your ticked foods, that meal falls back to a free mix and you are told.':mode==='prefer'?'Most meals use a combo, some are free mixes.':'Ignores combos and mixes any ticked foods.'}</div>
+   <div class="row" style="margin-top:12px"><input id="food_q" type="search" autocomplete="off" placeholder="Search combos" value="${esc(foodQ)}" style="flex:1"><button class="g" data-act="cnew">+ New</button></div>
+   ${filterChips('Ready')}`;
+  if(!list.length) h += `<div class="mut" style="margin-top:12px">No combos match.</div>`;
+  list.forEach(c => {
+    const needs = comboNeeds(c), kinds = [['b','Breakfast'],['m','Lunch/dinner'],['s','Snack']].filter(([k]) => c.kinds.includes(k)).map(x => x[1]).join(', ');
+    h += `<div class="frw" data-n="${esc(c.name.toLowerCase())}"><div class="cb">
+     <div class="row" style="align-items:center;gap:8px"><input type="checkbox" data-act="cenable" data-id="${c.id}" ${c.on!==false?'checked':''}><b style="flex:1">${esc(c.name)}</b>${c.src==='saved'?'<span class="tag">Saved</span>':''}${needs.length?'<span class="tag w">Needs foods</span>':'<span class="tag">Ready</span>'}</div>
+     <div class="mut">${esc(kinds)}${c.temp!=='any'?' · '+(c.temp==='hot'?'Hot':'Cold'):''}</div>
+     <div class="mut" style="margin-top:3px">${esc(comboSummary(c))}</div>
+     ${needs.length?`<div class="mut" style="color:var(--warn)">Tick: ${esc(needs.join(', '))}</div>`:''}
+     <div class="btns"><button class="s sm" data-act="cedit" data-id="${c.id}">Edit</button>${needs.length?`<button class="s sm" data-act="cready" data-id="${c.id}">Make ready</button>`:''}${c.note?`<button class="s sm" data-act="showrecipe" data-id="${c.id}">Recipe</button>`:''}<button class="s sm" data-act="cdel" data-id="${c.id}">Delete</button></div></div></div>`;
+  });
+  h += `<div class="row" style="margin-top:12px"><button class="g" data-act="crestore">Restore default combos</button></div></div>`;
+  return h;
+}
+let cEdit = null;
+function syncEdit(){
+  if(!cEdit) return;
+  const n = $('#ce_name'), t = $('#ce_temp'); if(n) cEdit.name = n.value; if(t) cEdit.temp = t.value;
+}
+function comboModal(){
+  const c = cEdit, byCat = {};
+  S.foods.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(f => (byCat[f.cat] = byCat[f.cat] || []).push(f));
+  openModal(`<h3>${c.isNew ? 'New combo' : 'Edit combo'}</h3>
+   <label class="f">Name<input id="ce_name" value="${esc(c.name)}"></label>
+   <div class="mut" style="margin:10px 0 2px;font-weight:600">Offered for</div>
+   <div class="chips">${[['b','Breakfast'],['m','Lunch / dinner'],['s','Snack']].map(([k,l]) => `<button class="chip ${c.kinds.includes(k)?'on':''}" data-act="ce_kind" data-v="${k}">${l}</button>`).join('')}</div>
+   <label class="f" style="margin-top:6px">Served<select id="ce_temp">${[['any','Any'],['hot','Hot'],['cold','Cold']].map(([k,l]) => `<option value="${k}" ${c.temp===k?'selected':''}>${l}</option>`).join('')}</select></label>
+   <div class="mut" style="margin:12px 0 2px;font-weight:600">Slots: each meal picks one food from every slot</div>
+   ${c.slots.map((sl, i) => `<div class="cslot"><div class="chips">${sl.ids.map(id => `<button class="chip sm on" data-act="ce_rm" data-s="${i}" data-id="${id}">${esc(cleanName((foodById(id)||{name:'?'}).name))} ×</button>`).join('') || '<span class="mut">Empty</span>'}</div>
+     <div class="row" style="align-items:center"><select data-act="ce_add" data-s="${i}" style="flex:1"><option value="">+ add a food</option>${Object.entries(byCat).map(([cat, fs]) => `<optgroup label="${CAT_LABEL[cat]}">${fs.filter(f => !sl.ids.includes(f.id)).map(f => `<option value="${f.id}">${esc(cleanName(f.name))}</option>`).join('')}</optgroup>`).join('')}</select>
+     <label class="mut" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-act="ce_opt" data-s="${i}" ${sl.opt?'checked':''}>Optional</label><button class="s sm" data-act="ce_delslot" data-s="${i}">Remove slot</button></div></div>`).join('')}
+   <div class="row" style="margin-top:8px"><button class="g" data-act="ce_slot">+ Add slot</button></div>
+   <div class="row" style="margin-top:14px"><button class="b" style="flex:1" data-act="ce_save">Save</button><button class="g" data-act="mclose">Cancel</button></div>`);
+}
+function comboNew(){ cEdit = {isNew:true, id:null, name:'', kinds:'m', temp:'any', slots:[{ids:[], opt:false}], note:'', src:'user'}; comboModal(); }
+function comboEdit(id){ const c = comboById(id); if(!c) return; cEdit = {isNew:false, id, name:c.name, kinds:c.kinds, temp:c.temp, slots:c.slots.map(x => ({ids:x.ids.slice(), opt:!!x.opt})), note:c.note || '', src:c.src, ratio:c.ratio, seed:c.seed}; comboModal(); }
+function comboSave(){
+  syncEdit(); const c = cEdit;
+  if(!c.name.trim()){ toast('Name needed'); return; }
+  const slots = c.slots.filter(x => x.ids.length);
+  if(!slots.some(x => !x.opt)){ toast('Add at least one food that is not optional'); return; }
+  if(!c.kinds){ toast('Pick at least one meal'); return; }
+  if(c.isNew) S.combos.push({id:uid(), name:c.name.trim(), kinds:c.kinds, temp:c.temp, slots, note:c.note, src:'user', on:true});
+  else { const t = comboById(c.id); if(t){ Object.assign(t, {name:c.name.trim(), kinds:c.kinds, temp:c.temp, slots}); if(t.ratio) delete t.ratio; } }
+  cEdit = null; save(); closeModal(); render(); toast('Combo saved');
+}
+function saveMealModal(di, mi){
+  const m = S.plan.list[di][mi], slot = S.settings.meals[mi] || m, kind = kindOf(slot);
+  saveCtx = {di, mi};
+  const nm = m.cname || m.items.slice(0, 2).map(it => cleanName((foodById(it.id)||{name:'?'}).name)).join(' & ');
+  openModal(`<h3>Save this meal</h3>
+   <div class="mut">${m.items.map(it => `${esc(cleanName((foodById(it.id)||{name:'?'}).name))} ${it.g} g`).join(', ')}</div>
+   <label class="f" style="margin-top:10px">Name<input id="sm_name" value="${esc(nm)}"></label>
+   <div class="mut" style="margin:10px 0 2px;font-weight:600">Offer it as</div>
+   <div class="chips">${[['b','Breakfast'],['m','Lunch / dinner'],['s','Snack']].map(([k,l]) => `<label class="chip ${k===kind?'on':''}" style="cursor:pointer"><input type="checkbox" class="sm_kind" value="${k}" ${k===kind?'checked':''}> ${l}</label>`).join('')}</div>
+   <label class="f" style="margin-top:6px">Served<select id="sm_temp">${[['any','Any'],['hot','Hot'],['cold','Cold']].map(([k,l]) => `<option value="${k}" ${(m.temp||'any')===k?'selected':''}>${l}</option>`).join('')}</select></label>
+   <label class="f" style="margin-top:10px">Recipe notes (optional)<textarea id="sm_note" rows="5" placeholder="Paste the recipe that worked from Google, Claude or ChatGPT"></textarea></label>
+   <label class="mut" style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="sm_ratio" checked>Keep these proportions when it is offered again</label>
+   <div class="row" style="margin-top:14px"><button class="b" style="flex:1" data-act="sm_save">Save</button><button class="g" data-act="mclose">Cancel</button></div>`);
+}
+let saveCtx = null;
+function saveMealGo(){
+  const m = S.plan.list[saveCtx.di][saveCtx.mi], name = $('#sm_name').value.trim();
+  if(!name){ toast('Name needed'); return; }
+  const kinds = [...document.querySelectorAll('.sm_kind:checked')].map(x => x.value).join('');
+  if(!kinds){ toast('Pick at least one meal'); return; }
+  const c = {id:uid(), name, kinds, temp:$('#sm_temp').value, slots:m.items.map(it => ({ids:[it.id], opt:false})), note:$('#sm_note').value.trim(), src:'saved', on:true};
+  if($('#sm_ratio').checked) c.ratio = m.items.map(it => it.g);
+  S.combos.push(c); m.combo = c.id; m.cname = c.name;
+  save(); closeModal(); render(); toast('Saved. It will show up in swaps and future plans.');
+}
+function showRecipe(id){
+  const c = comboById(id); if(!c) return;
+  openModal(`<h3>${esc(c.name)}</h3><div class="mut">${esc(comboSummary(c))}</div><div style="white-space:pre-wrap;margin-top:12px;font-size:14px;line-height:1.5">${esc(c.note || 'No notes saved.')}</div>
+   <div class="row" style="margin-top:14px">${c.note?`<button class="s" data-act="copynote" data-id="${c.id}">Copy</button>`:''}<button class="g" data-act="mclose">Close</button></div>`);
+}
+function comboSuggestions(slot, cur){
+  const temp = 'any';
+  return (S.combos || []).filter(c => c.id !== cur.combo && comboFits(c, slot, temp) && comboOptions(c, slot, null))
+    .sort((a,b) => (b.src === 'saved') - (a.src === 'saved') || Math.random() - .5).slice(0, 8);
+}
+
 function swapModal(di, mi){
   const m = S.plan.list[di][mi], slot = S.settings.meals[mi] || m;
   const opts = (cat) => `<option value="">Keep</option><option value="chg">Different ${CAT_LABEL[cat].toLowerCase()}</option>`;
   const extra = S.foods.filter(f => f.on && allowed(f, slot));
-  openModal(`<h3>Swap ${esc(m.name)}</h3><div class="mut" style="margin-bottom:10px">Everything is optional. Leave as is for a surprise.</div>
+  const sug = comboSuggestions(slot, m);
+  openModal(`<h3>Swap ${esc(m.name)}</h3>
+   ${sug.length ? `<div class="mut" style="margin-bottom:4px;font-weight:600">Suggestions</div><div class="sug">${sug.map(c => `<button data-act="swapcombo" data-d="${di}" data-m="${mi}" data-id="${c.id}"><b>${esc(c.name)}</b>${c.src==='saved'?' <span class="tag">Saved</span>':''}<br><span class="mut">${esc(comboSummary(c))}</span></button>`).join('')}</div>
+   <div class="mut" style="margin:14px 0 8px;font-weight:600">Or mix it yourself</div>` : ''}
+   <div class="mut" style="margin-bottom:10px">Everything is optional. Leave as is for a surprise.</div>
    <div class="grid">${['protein','carb','veg'].map(c => `<label class="f">${CAT_LABEL[c]}<select id="sw_${c}">${opts(c)}</select></label>`).join('')}</div>
    <div class="grid2" style="margin-top:10px">
     <label class="f">Temperature<select id="sw_temp"><option value="">Any</option><option value="hot">Hot</option><option value="cold">Cold</option></select></label>
@@ -1190,7 +1440,9 @@ function recipeModal(di, mi){
    <div class="mut" style="margin:10px 0 2px;font-weight:600">Time</div>
    <div class="chips">${chips(['Any','15','30','60'], st.time, 'rtime', x => x==='Any'?'Any':'Under '+x+' min')}</div>
    <label class="f" style="margin-top:10px">Anything else (optional)<input id="rc_note" placeholder="e.g. kid-friendly, spicy, one pan" value="${esc(recipeNote)}"></label>
-   <div class="row" style="margin-top:16px"><a id="rl_g" class="s" target="_blank" rel="noopener" href="${u.g}">Google</a><a id="rl_c" class="s" target="_blank" rel="noopener" href="${u.c}">Claude</a><a id="rl_t" class="s" target="_blank" rel="noopener" href="${u.t}">ChatGPT</a><button class="g" data-act="mclose">Close</button></div>`);
+   <div class="row" style="margin-top:16px"><a id="rl_g" class="s" target="_blank" rel="noopener" href="${u.g}">Google</a><a id="rl_c" class="s" target="_blank" rel="noopener" href="${u.c}">Claude</a><a id="rl_t" class="s" target="_blank" rel="noopener" href="${u.t}">ChatGPT</a></div>
+   <div class="mut" style="margin-top:14px">Found one that worked? Save the meal with the recipe so it comes back later.</div>
+   <div class="row" style="margin-top:6px"><button class="b" data-act="savemeal" data-d="${di}" data-m="${mi}">Save this meal</button><button class="g" data-act="mclose">Close</button></div>`);
 }
 function swapGo(di, mi){
   const cur = S.plan.list[di][mi], exclude = {};
@@ -1338,7 +1590,7 @@ document.addEventListener('click', async e => {
   if(el.tagName === 'INPUT' || el.tagName === 'SELECT') { if(el.type !== 'checkbox') return; }
   switch(a){
     case 'view': setView(el.dataset.v); break;
-    case 'gen': if(generate()){ render(); toast('Plan ready'); } break;
+    case 'gen': if(generate()){ render(); toast(generate.note || 'Plan ready'); } break;
     case 'rmstore': removeStore(el.dataset.s); break;
     case 'addother': addStore($('#store_other').value); break;
     case 'homeloc': useMyLocation(); break;
@@ -1364,6 +1616,26 @@ document.addEventListener('click', async e => {
       f.use[el.dataset.m] = !f.use[el.dataset.m];
       save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'swapgo': swapGo(+el.dataset.d, +el.dataset.m); break;
+    case 'swapcombo': closeModal(); swapMeal(+el.dataset.d, +el.dataset.m, {combo: el.dataset.id}); break;
+    case 'savemeal': saveMealModal(+el.dataset.d, +el.dataset.m); break;
+    case 'sm_save': saveMealGo(); break;
+    case 'showrecipe': showRecipe(el.dataset.id); break;
+    case 'copynote': try{ await navigator.clipboard.writeText((comboById(el.dataset.id) || {}).note || ''); toast('Copied'); }catch(err){ toast('Select and copy the text'); } break;
+    case 'ftab': foodTab = el.dataset.v; foodMeal = 'all'; render(); break;
+    case 'fmeal': foodMeal = el.dataset.v; render(); break;
+    case 'tickall': case 'clearall': { const on = a === 'tickall'; S.foods.filter(foodShown).forEach(f => f.on = on); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'assoc': S.settings.assoc = el.dataset.v; save(); render(); break;
+    case 'cnew': comboNew(); break;
+    case 'cedit': comboEdit(el.dataset.id); break;
+    case 'cdel': { const c = comboById(el.dataset.id); if(c && confirm('Delete "' + c.name + '"?')){ S.combos = S.combos.filter(x => x.id !== c.id); save(); render(); } break; }
+    case 'cenable': { const c = comboById(el.dataset.id); if(c){ c.on = el.checked; save(); } break; }
+    case 'cready': { const c = comboById(el.dataset.id); if(c){ c.slots.filter(sl => !sl.opt && !sl.ids.some(id => (foodById(id) || {}).on)).forEach(sl => { const f = foodById(sl.ids[0]); if(f) f.on = true; }); save(); const y = window.scrollY; render(); window.scrollTo(0, y); } break; }
+    case 'crestore': { const have = new Set(S.combos.filter(c => c.seed).map(c => c.seed)), miss = new Set(COMBO_SEEDS.map(x => x[0]).filter(n => !have.has(n))); const add = seedCombos(S.foods, miss); S.combos.push(...add); save(); render(); toast(add.length ? add.length + ' combos restored' : 'All default combos are already there'); break; }
+    case 'ce_kind': syncEdit(); { const k = el.dataset.v; cEdit.kinds = cEdit.kinds.includes(k) ? cEdit.kinds.replace(k, '') : cEdit.kinds + k; } comboModal(); break;
+    case 'ce_rm': syncEdit(); { const sl = cEdit.slots[+el.dataset.s]; sl.ids = sl.ids.filter(x => x !== el.dataset.id); } comboModal(); break;
+    case 'ce_slot': syncEdit(); cEdit.slots.push({ids:[], opt:false}); comboModal(); break;
+    case 'ce_delslot': syncEdit(); cEdit.slots.splice(+el.dataset.s, 1); if(!cEdit.slots.length) cEdit.slots.push({ids:[], opt:false}); comboModal(); break;
+    case 'ce_save': comboSave(); break;
     case 'mclose': if(e.target === el || el.classList.contains('g')) closeModal(); break;
     case 'store': storeSel = el.dataset.s; render(); break;
     case 'done': S.done[el.dataset.id] = el.checked; save(); render(); break;
@@ -1430,6 +1702,8 @@ document.addEventListener('change', e => {
   if(a === 'price'){ const f = foodById(el.dataset.id), v = parseFloat(el.value); if(v >= 0){ f.price = v; f.avg = null; f.n = 0; save(); } }
   if(a === 'sprice'){ const f = foodById(el.dataset.id), v = parseFloat(el.value); if(v > 0) f.sp[storeSel] = {now:v, at:today()}; else delete f.sp[storeSel]; save(); }
   if(a === 'gkey'){ st.gkey = el.value.trim(); save(); }
+  if(a === 'ce_add' && el.value){ syncEdit(); const sl = cEdit.slots[+el.dataset.s]; if(!sl.ids.includes(el.value)) sl.ids.push(el.value); comboModal(); }
+  if(a === 'ce_opt'){ syncEdit(); cEdit.slots[+el.dataset.s].opt = el.checked; }
   if(a === 'sheet'){ st.sheetUrl = el.value.trim(); save(); }
 });
 document.addEventListener('input', e => {
