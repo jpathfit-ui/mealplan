@@ -145,7 +145,30 @@ details summary{cursor:pointer;color:var(--acc);font-weight:600;font-size:14px}
 .stop{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px}
 .stoph{display:flex;justify-content:space-between;gap:8px}
 .stoph span{font-variant-numeric:tabular-nums;font-weight:600}
+/* foods tab: clean controls */
+.seg{display:flex;gap:2px;background:var(--acc2);border-radius:14px;padding:3px;margin:10px 0 4px}
+.seg button{flex:1;border:0;background:none;padding:8px 2px;border-radius:11px;font:inherit;font-size:13px;color:var(--mut);cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--paper);color:var(--acc);font-weight:600;box-shadow:0 1px 3px rgba(60,40,20,.16)}
+.seg.big{margin:0 0 12px}.seg.big button{font-size:15px;padding:10px 2px}
+.fbar{display:flex;gap:8px;align-items:center}
+.fbar input{flex:1}
+.ibtn{width:44px;height:44px;flex:none;display:grid;place-items:center;border:1px solid var(--line);background:var(--paper);border-radius:12px;cursor:pointer;padding:0}
+.ibtn svg{width:22px;height:22px;fill:none;stroke:var(--acc);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.fsum{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;color:var(--mut);padding:6px 2px 8px}
+.fsum select{padding:5px 8px;font-size:13px;border-radius:10px}
+.fhint{font-size:12px;color:var(--mut);padding:0 2px 6px}
+.grp{border-top:1px dashed var(--line)}
+.grp-t{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:15px 2px;font:inherit;cursor:pointer;color:var(--ink);text-align:left}
+.gt{font:600 18px var(--serif);color:var(--acc);flex:none}
+.gs{flex:1;text-align:right;font-size:13px;color:var(--mut)}
+.grp.open .chev{transform:rotate(180deg)}
+.gb{padding:0 2px 12px}
+.gtools{display:flex;justify-content:flex-end;gap:18px;padding:0 0 4px}
+.lnk{background:none;border:0;color:var(--acc);font:inherit;font-size:13px;font-weight:600;padding:4px 0;cursor:pointer}
+.fr.hd{padding:2px 0 4px;font-size:11px;color:var(--mut);border:0}
+.fr.hd span:nth-child(n+3){text-align:right}
 .cb{padding:12px 0;border-top:1px dashed var(--line)}
+.gb>.cb:first-child{border-top:0}
 .cslot{border:1px solid var(--line);border-radius:14px;padding:8px 10px;margin:8px 0}
 label.f textarea{display:block;width:100%;margin-top:4px}
 .sug button b{font-weight:600}
@@ -907,44 +930,66 @@ function vCompare(L){
 function allocRow(f){
   return `<div class="alloc">${S.settings.meals.map(m => `<button class="chip sm ${allowed(f,m)?'on':''}" data-act="alloc" data-id="${f.id}" data-m="${m.id}">${esc(m.name)}</button>`).join('')}</div>`;
 }
-const MEAL_FILTERS = [['all','All'],['b','Breakfast'],['m','Lunch & dinner'],['s','Snack']];
+const FRUIT_NAMES = new Set(['banana','apple','orange','strawberries','blueberries','raspberries','grapes','pineapple','mango','peaches','pears','cantaloupe','kiwi','frozen mixed berries','frozen strawberries','frozen mango']);
+const isFruit = f => f.cat === 'veg' && (f.fruit != null ? f.fruit : FRUIT_NAMES.has(f.name.toLowerCase()));
+const grpOf = f => f.cat === 'veg' ? (isFruit(f) ? 'fruit' : 'veg') : f.cat;
+const FOOD_GROUPS = [['protein','Protein'],['carb','Carbs'],['fruit','Fruit'],['veg','Vegetables'],['fat','Fats, nuts & cheese']];
+const CAT_CHOICES = [['protein','Protein'],['carb','Carb'],['fruit','Fruit'],['veg','Vegetable'],['fat','Fat or cheese']];
+const MEAL_FILTERS = [['all','All'],['b','Breakfast'],['m','Lunch / dinner'],['s','Snack']];
+let openGrp = {}, comboReady = false;
+const grpOpen = g => foodQ ? true : (openGrp[g] !== undefined ? openGrp[g] : foodMeal !== 'all');
+function inMeal(f, k){
+  const ms = S.settings.meals.filter(m => kindOf(m) === k);
+  return ms.length ? ms.some(m => allowed(f, m)) : (!f.kinds || f.kinds.includes(k));
+}
 function foodShown(f){
   if(foodQ && !f.name.toLowerCase().includes(foodQ.toLowerCase())) return false;
-  if(foodMeal === 'x') return !!f.on;
-  if(foodMeal !== 'all' && f.kinds && !f.kinds.includes(foodMeal)) return false;
+  if(foodMeal !== 'all') return !!f.on && inMeal(f, foodMeal);
   return true;
 }
-function foodTabs(){
-  const n = (S.combos || []).length;
-  return `<div class="chips" style="margin:0 0 10px"><button class="chip ${foodTab==='foods'?'on':''}" data-act="ftab" data-v="foods">Foods ${S.foods.length}</button><button class="chip ${foodTab==='combos'?'on':''}" data-act="ftab" data-v="combos">Combos ${n}</button></div>`;
-}
-function filterChips(last){
-  return `<div class="chips">${MEAL_FILTERS.map(([k,l]) => `<button class="chip sm ${foodMeal===k?'on':''}" data-act="fmeal" data-v="${k}">${l}</button>`).join('')}<button class="chip sm ${foodMeal==='x'?'on':''}" data-act="fmeal" data-v="x">${last}</button></div>`;
+const seg = (items, cur, act, cls) => `<div class="seg ${cls||''}">${items.map(([k,l]) => `<button class="${cur===k?'on':''}" data-act="${act}" data-v="${k}">${l}</button>`).join('')}</div>`;
+const CAM = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+function foodTabs(){ return seg([['foods','Foods'],['combos','Combos']], foodTab, 'ftab', 'big'); }
+function foodBar(ph, scan){
+  return `<div class="fbar"><input id="food_q" type="search" autocomplete="off" placeholder="${ph}" value="${esc(foodQ)}">${scan ? `<button class="ibtn" data-act="scan" aria-label="Scan barcode">${CAM}</button>` : ''}</div>${seg(MEAL_FILTERS, foodMeal, 'fmeal')}`;
 }
 function vFoods(){ return foodTabs() + (foodTab === 'combos' ? vCombos() : vFoodList()); }
+function foodListHtml(){
+  const st = S.settings;
+  if(!storeSel || !st.stores.includes(storeSel)) storeSel = st.primary;
+  let h = '', any = false;
+  FOOD_GROUPS.forEach(([g, label]) => {
+    const all = S.foods.filter(f => grpOf(f) === g), fs = all.filter(foodShown);
+    if((foodMeal !== 'all' || foodQ) && !fs.length) return;
+    any = true;
+    const open = grpOpen(g), on = all.filter(f => f.on).length, filt = foodMeal !== 'all';
+    h += `<div class="grp ${open?'open':''}"><button class="grp-t" data-act="grp" data-g="${g}" aria-expanded="${open}"><span class="gt">${label}</span><span class="gs">${filt ? fs.length + ' ticked' : on + ' of ' + all.length + ' ticked'}</span><svg viewBox="0 0 24 24" class="chev" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`;
+    if(open){
+      h += `<div class="gb"><div class="gtools">${filt ? '' : `<button class="lnk" data-act="gtick" data-g="${g}">Select all</button>`}<button class="lnk" data-act="gclear" data-g="${g}">${filt ? 'Clear these' : 'Clear all'}</button></div>
+       <div class="fr hd"><span></span><span>Food</span><span>Typical</span><span>${esc(storeSel)}</span></div>`;
+      fs.forEach(f => {
+        const sp = f.sp[storeSel] && f.sp[storeSel].now;
+        h += `<div class="frw"><div class="fr"><input type="checkbox" data-act="tick" data-id="${f.id}" ${f.on?'checked':''}>
+         <div class="nm">${esc(f.name)}<small>${f.k} kcal · P${f.p} C${f.c} F${f.f} /100g${f.avg!=null?` · learned from ${f.n} log${f.n===1?'':'s'}`:''}</small></div>
+         <input type="number" step="0.01" inputmode="decimal" data-act="price" data-id="${f.id}" value="${basePrice(f).toFixed(2)}">
+         <input type="number" step="0.01" inputmode="decimal" placeholder="—" data-act="sprice" data-id="${f.id}" value="${sp?sp:''}"></div>${f.on?allocRow(f):''}</div>`;
+      });
+      h += `</div>`;
+    }
+    h += `</div>`;
+  });
+  if(!any) h = `<div class="mut" style="padding:16px 2px">${foodMeal !== 'all' && !foodQ ? 'Nothing ticked for ' + MEAL_FILTERS.find(x => x[0] === foodMeal)[1].toLowerCase() + ' yet. Switch to All to add foods.' : 'No foods match.'}</div>`;
+  return h;
+}
 function vFoodList(){
   const st = S.settings;
   if(!storeSel || !st.stores.includes(storeSel)) storeSel = st.primary;
-  let h = `<div class="card"><h2>Foods you will buy</h2><div class="mut">Tick what you are shopping for. Under each ticked food, choose which meals it can appear in. Prices are per kg.</div>
-   <div class="row" style="margin-top:10px"><input id="food_q" type="search" autocomplete="off" placeholder="Search foods" value="${esc(foodQ)}" style="flex:1"><button class="g" data-act="scan">Scan barcode</button></div>
-   ${filterChips('Ticked')}
-   <div class="row" style="margin:6px 0 4px"><button class="s sm" data-act="tickall">Tick all shown</button><button class="s sm" data-act="clearall">Clear all shown</button><span class="mut" style="margin-left:auto">${S.foods.filter(f => foodShown(f) && f.on).length} of ${S.foods.filter(foodShown).length} shown ticked</span></div>
-   <div class="chips" style="margin-top:10px">${st.stores.map(s => `<button class="chip ${s===storeSel?'on':''}" data-act="store" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
-   <div class="fr" style="border:0;padding-bottom:0"><span></span><span class="mut">Food</span><span class="mut" style="text-align:right">Typical</span><span class="mut" style="text-align:right">${esc(storeSel)}</span></div>`;
-  ['protein','carb','veg','fat'].forEach(cat => {
-    const fs = S.foods.filter(f => f.cat === cat && foodShown(f));
-    h += `<div class="mut cath" style="margin-top:10px;font-weight:600">${CAT_LABEL[cat]} <span class="mut" style="font-weight:400">${fs.length}</span></div>`;
-    fs.forEach(f => {
-      const sp = f.sp[storeSel] && f.sp[storeSel].now;
-      h += `<div class="frw" data-n="${esc(f.name.toLowerCase())}"><div class="fr"><input type="checkbox" data-act="tick" data-id="${f.id}" ${f.on?'checked':''}>
-       <div class="nm">${esc(f.name)}<small>${f.k} kcal · P${f.p} C${f.c} F${f.f} /100g${f.avg!=null?` · learned from ${f.n} log${f.n===1?'':'s'}`:''}</small></div>
-       <input type="number" step="0.01" inputmode="decimal" data-act="price" data-id="${f.id}" value="${basePrice(f).toFixed(2)}">
-       <input type="number" step="0.01" inputmode="decimal" placeholder="—" data-act="sprice" data-id="${f.id}" value="${sp?sp:''}"></div>${f.on?allocRow(f):''}</div>`;
-    });
-  });
-  h += `<div style="margin-top:12px" class="row"><button class="g" data-act="addfood">+ Add food</button></div></div>
+  return `<div class="card">${foodBar('Search foods', true)}
+   <div class="fsum"><span>${S.foods.filter(f => f.on).length} of ${S.foods.length} ticked</span><label>Prices at <select data-act="pstore">${st.stores.map(x => `<option ${x===storeSel?'selected':''}>${esc(x)}</option>`).join('')}</select></label></div>
+   ${foodMeal !== 'all' ? `<div class="fhint">Showing only what you ticked for ${MEAL_FILTERS.find(x => x[0] === foodMeal)[1].toLowerCase()}. Switch to All to add more.</div>` : ''}
+   <div id="food_list">${foodListHtml()}</div>
+   <div class="row" style="margin-top:14px"><button class="g" data-act="addfood">+ Add food</button></div></div>
    <div class="mut" style="padding:0 4px">Nutrition values are approximate starters. Check them against the Canadian Nutrient File or package labels and edit as needed.</div>`;
-  return h;
 }
 
 function macroField(label, key, cal){
@@ -1314,27 +1359,36 @@ function comboSummary(c){
 function comboNeeds(c){
   return c.slots.filter(sl => !sl.opt && !sl.ids.some(id => (foodById(id) || {}).on)).map(sl => cleanName((foodById(sl.ids[0]) || {name:'?'}).name));
 }
-function vCombos(){
-  const st = S.settings, mode = st.assoc || 'strict';
-  const list = (S.combos || []).filter(c => (foodMeal === 'all' || foodMeal === 'x' || c.kinds.includes(foodMeal)) && (foodMeal !== 'x' || !comboNeeds(c).length) && (!foodQ || c.name.toLowerCase().includes(foodQ.toLowerCase())));
-  let h = `<div class="card"><h2>Combos</h2><div class="mut">Foods that belong together. When you generate a plan, each meal is built from a combo, so you get a breakfast sandwich instead of whey with a tortilla. A combo needs at least one ticked food in each non-optional slot.</div>
-   <div class="mut" style="margin:12px 0 2px;font-weight:600">How to build meals</div>
-   <div class="chips">${[['strict','Combos only'],['prefer','Prefer combos'],['free','Free mix']].map(([k,l]) => `<button class="chip ${mode===k?'on':''}" data-act="assoc" data-v="${k}">${l}</button>`).join('')}</div>
-   <div class="mut">${mode==='strict'?'Meals only come from combos. If none fits your ticked foods, that meal falls back to a free mix and you are told.':mode==='prefer'?'Most meals use a combo, some are free mixes.':'Ignores combos and mixes any ticked foods.'}</div>
-   <div class="row" style="margin-top:12px"><input id="food_q" type="search" autocomplete="off" placeholder="Search combos" value="${esc(foodQ)}" style="flex:1"><button class="g" data-act="cnew">+ New</button></div>
-   ${filterChips('Ready')}`;
-  if(!list.length) h += `<div class="mut" style="margin-top:12px">No combos match.</div>`;
-  list.forEach(c => {
-    const needs = comboNeeds(c), kinds = [['b','Breakfast'],['m','Lunch/dinner'],['s','Snack']].filter(([k]) => c.kinds.includes(k)).map(x => x[1]).join(', ');
-    h += `<div class="frw" data-n="${esc(c.name.toLowerCase())}"><div class="cb">
-     <div class="row" style="align-items:center;gap:8px"><input type="checkbox" data-act="cenable" data-id="${c.id}" ${c.on!==false?'checked':''}><b style="flex:1">${esc(c.name)}</b>${c.src==='saved'?'<span class="tag">Saved</span>':''}${needs.length?'<span class="tag w">Needs foods</span>':'<span class="tag">Ready</span>'}</div>
+function comboCard(c){
+  const needs = comboNeeds(c), kinds = [['b','Breakfast'],['m','Lunch/dinner'],['s','Snack']].filter(([k]) => c.kinds.includes(k)).map(x => x[1]).join(', ');
+  return `<div class="cb">
+     <div class="row" style="align-items:center;gap:8px;flex-wrap:nowrap"><input type="checkbox" data-act="cenable" data-id="${c.id}" ${c.on!==false?'checked':''}><b style="flex:1;min-width:0">${esc(c.name)}</b>${c.src==='saved'?'<span class="tag">Saved</span>':''}${needs.length?'<span class="tag w">Needs foods</span>':'<span class="tag">Ready</span>'}</div>
      <div class="mut">${esc(kinds)}${c.temp!=='any'?' · '+(c.temp==='hot'?'Hot':'Cold'):''}</div>
      <div class="mut" style="margin-top:3px">${esc(comboSummary(c))}</div>
      ${needs.length?`<div class="mut" style="color:var(--warn)">Tick: ${esc(needs.join(', '))}</div>`:''}
-     <div class="btns"><button class="s sm" data-act="cedit" data-id="${c.id}">Edit</button>${needs.length?`<button class="s sm" data-act="cready" data-id="${c.id}">Make ready</button>`:''}${c.note?`<button class="s sm" data-act="showrecipe" data-id="${c.id}">Recipe</button>`:''}<button class="s sm" data-act="cdel" data-id="${c.id}">Delete</button></div></div></div>`;
+     <div class="btns"><button class="s sm" data-act="cedit" data-id="${c.id}">Edit</button>${needs.length?`<button class="s sm" data-act="cready" data-id="${c.id}">Make ready</button>`:''}${c.note?`<button class="s sm" data-act="showrecipe" data-id="${c.id}">Recipe</button>`:''}<button class="s sm" data-act="cdel" data-id="${c.id}">Delete</button></div></div>`;
+}
+function comboListHtml(){
+  const q = foodQ.toLowerCase(), all = S.combos || [];
+  const base = all.filter(c => (foodMeal === 'all' || c.kinds.includes(foodMeal)) && (!q || c.name.toLowerCase().includes(q)) && (!comboReady || !comboNeeds(c).length));
+  const primary = c => c.kinds.includes('b') ? 'b' : c.kinds.includes('m') ? 'm' : 's';
+  let h = '';
+  [['b','Breakfast'],['m','Lunch & dinner'],['s','Snacks']].forEach(([k, label]) => {
+    const list = base.filter(c => primary(c) === k); if(!list.length) return;
+    const g = 'c_' + k, open = foodQ || comboReady ? true : (openGrp[g] !== undefined ? openGrp[g] : foodMeal !== 'all'), tot = all.filter(c => primary(c) === k), rdy = tot.filter(c => !comboNeeds(c).length).length;
+    h += `<div class="grp ${open?'open':''}"><button class="grp-t" data-act="grp" data-g="${g}" aria-expanded="${open}"><span class="gt">${label}</span><span class="gs">${rdy} ready of ${tot.length}</span><svg viewBox="0 0 24 24" class="chev" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>${open ? `<div class="gb">${list.map(comboCard).join('')}</div>` : ''}</div>`;
   });
-  h += `<div class="row" style="margin-top:12px"><button class="g" data-act="crestore">Restore default combos</button></div></div>`;
-  return h;
+  return h || `<div class="mut" style="padding:16px 2px">No combos match.</div>`;
+}
+function vCombos(){
+  const mode = S.settings.assoc || 'strict';
+  return `<div class="card">${foodBar('Search combos', false)}
+   <div class="fsum"><span>${(S.combos || []).length} combos</span><button class="lnk" data-act="cready_only">${comboReady ? 'Showing ready only' : 'Ready only'}</button></div>
+   <div id="food_list">${comboListHtml()}</div>
+   <div class="mut" style="margin:16px 0 6px;font-weight:600">How meals are built</div>
+   ${seg([['strict','Combos only'],['prefer','Prefer combos'],['free','Free mix']], mode, 'assoc')}
+   <div class="mut" style="margin-top:6px">${mode==='strict'?'Every meal comes from a combo. If none fits your ticked foods, that meal falls back to a free mix and you are told.':mode==='prefer'?'Most meals use a combo, some are free mixes.':'Ignores combos and mixes any ticked foods.'}</div>
+   <div class="row" style="margin-top:14px"><button class="g" data-act="cnew">+ New combo</button><button class="g" data-act="crestore">Restore defaults</button></div></div>`;
 }
 let cEdit = null;
 function syncEdit(){
@@ -1481,7 +1535,7 @@ async function logSave(){
 function addFoodModal(){
   openModal(`<h3>Add food</h3>
    <label class="f">Name<input id="nf_name"></label>
-   <div class="grid2" style="margin-top:10px"><label class="f">Category<select id="nf_cat">${Object.entries(CAT_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
+   <div class="grid2" style="margin-top:10px"><label class="f">Category<select id="nf_cat">${CAT_CHOICES.map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
    <label class="f">$ per kg<input id="nf_price" type="number" step="0.01" value="8"></label></div>
    <div class="mut" style="margin:10px 0 4px">Nutrition per 100 g (as bought: raw or dry)</div>
    <div class="grid" style="grid-template-columns:repeat(4,1fr)"><label class="f">kcal<input id="nf_k" type="number"></label><label class="f">Protein<input id="nf_p" type="number"></label><label class="f">Carbs<input id="nf_c" type="number"></label><label class="f">Fat<input id="nf_f" type="number"></label></div>
@@ -1563,7 +1617,7 @@ function scanResult(code, d, hasNut){
   openModal(`<h3>Scanned ${esc(code)}</h3>
    ${hasNut ? '' : '<div class="mut" style="margin-bottom:8px">No nutrition on file for this one. Fill it in from the label.</div>'}
    <label class="f">Name<input id="sv_name" value="${esc(known ? known.name : d.name)}"></label>
-   <div class="grid2" style="margin-top:10px"><label class="f">Category<select id="sv_cat">${Object.entries(CAT_LABEL).map(([k,v])=>`<option value="${k}" ${k===cat?'selected':''}>${v}</option>`).join('')}</select></label>
+   <div class="grid2" style="margin-top:10px"><label class="f">Category<select id="sv_cat">${CAT_CHOICES.map(([k,v])=>`<option value="${k}" ${k===(known && isFruit(known) ? 'fruit' : cat)?'selected':''}>${v}</option>`).join('')}</select></label>
    <label class="f">$ per kg<input id="sv_price" type="number" step="0.01" value="${known ? known.price : 8}"></label></div>
    <div class="mut" style="margin:10px 0 4px">Per 100 g, from the package</div>
    <div class="grid" style="grid-template-columns:repeat(4,1fr)"><label class="f">kcal<input id="sv_k" type="number" value="${d.k}"></label><label class="f">Protein<input id="sv_p" type="number" value="${d.p}"></label><label class="f">Carbs<input id="sv_c" type="number" value="${d.c}"></label><label class="f">Fat<input id="sv_f" type="number" value="${d.f}"></label></div>
@@ -1576,7 +1630,8 @@ function scanResult(code, d, hasNut){
 function scanSave(code){
   const name = $('#sv_name').value.trim(); if(!name){ toast('Name needed'); return; }
   const nv = id => parseFloat($('#'+id).value) || 0, kinds = [...document.querySelectorAll('.sv_kind:checked')].map(x => x.value).join('');
-  const vals = {name, cat:$('#sv_cat').value, k:nv('sv_k'), p:nv('sv_p'), c:nv('sv_c'), f:nv('sv_f'), price:nv('sv_price') || 5, kinds: kinds && kinds.length < 3 ? kinds : null, barcode:code};
+  const csel = $('#sv_cat').value;
+  const vals = {name, cat: csel === 'fruit' ? 'veg' : csel, fruit: csel === 'fruit', k:nv('sv_k'), p:nv('sv_p'), c:nv('sv_c'), f:nv('sv_f'), price:nv('sv_price') || 5, kinds: kinds && kinds.length < 3 ? kinds : null, barcode:code};
   const into = $('#sv_into').value, ex = into && foodById(into);
   if(ex){ Object.assign(ex, vals, {on:true}); ex.avg = null; ex.n = 0; }
   else S.foods.push({id:uid(), maxg:null, avg:null, n:0, sp:{}, on:true, use:null, ...vals});
@@ -1621,9 +1676,11 @@ document.addEventListener('click', async e => {
     case 'sm_save': saveMealGo(); break;
     case 'showrecipe': showRecipe(el.dataset.id); break;
     case 'copynote': try{ await navigator.clipboard.writeText((comboById(el.dataset.id) || {}).note || ''); toast('Copied'); }catch(err){ toast('Select and copy the text'); } break;
-    case 'ftab': foodTab = el.dataset.v; foodMeal = 'all'; render(); break;
-    case 'fmeal': foodMeal = el.dataset.v; render(); break;
-    case 'tickall': case 'clearall': { const on = a === 'tickall'; S.foods.filter(foodShown).forEach(f => f.on = on); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'ftab': foodTab = el.dataset.v; foodMeal = 'all'; foodQ = ''; openGrp = {}; render(); break;
+    case 'fmeal': foodMeal = el.dataset.v; openGrp = {}; render(); break;
+    case 'grp': { const g = el.dataset.g, cur = el.closest('.grp').classList.contains('open'); openGrp[g] = !cur; const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'gtick': case 'gclear': { const on = a === 'gtick'; S.foods.filter(f => grpOf(f) === el.dataset.g && foodShown(f)).forEach(f => f.on = on); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'cready_only': comboReady = !comboReady; render(); break;
     case 'assoc': S.settings.assoc = el.dataset.v; save(); render(); break;
     case 'cnew': comboNew(); break;
     case 'cedit': comboEdit(el.dataset.id); break;
@@ -1651,8 +1708,8 @@ document.addEventListener('click', async e => {
     case 'scansave': scanSave(el.dataset.code); break;
     case 'nfsave': {
       const name = $('#nf_name').value.trim(); if(!name){ toast('Name needed'); break; }
-      const cat = $('#nf_cat').value, nv = id => parseFloat($('#'+id).value) || 0;
-      S.foods.push({id:uid(), name, cat, k:nv('nf_k'), p:nv('nf_p'), c:nv('nf_c'), f:nv('nf_f'), price:nv('nf_price')||5, maxg:null, avg:null, n:0, sp:{}, on:true, kinds:null, use:null});
+      const sel = $('#nf_cat').value, cat = sel === 'fruit' ? 'veg' : sel, nv = id => parseFloat($('#'+id).value) || 0;
+      S.foods.push({id:uid(), name, cat, fruit: sel === 'fruit', k:nv('nf_k'), p:nv('nf_p'), c:nv('nf_c'), f:nv('nf_f'), price:nv('nf_price')||5, maxg:null, avg:null, n:0, sp:{}, on:true, kinds:null, use:null});
       save(); closeModal(); render(); break; }
     case 'copyscript': try{ await navigator.clipboard.writeText(SCRIPT); toast('Copied'); }catch(err){ toast('Select and copy the text'); } break;
     case 'sendhist': {
@@ -1702,6 +1759,7 @@ document.addEventListener('change', e => {
   if(a === 'price'){ const f = foodById(el.dataset.id), v = parseFloat(el.value); if(v >= 0){ f.price = v; f.avg = null; f.n = 0; save(); } }
   if(a === 'sprice'){ const f = foodById(el.dataset.id), v = parseFloat(el.value); if(v > 0) f.sp[storeSel] = {now:v, at:today()}; else delete f.sp[storeSel]; save(); }
   if(a === 'gkey'){ st.gkey = el.value.trim(); save(); }
+  if(a === 'pstore'){ storeSel = el.value; render(); }
   if(a === 'ce_add' && el.value){ syncEdit(); const sl = cEdit.slots[+el.dataset.s]; if(!sl.ids.includes(el.value)) sl.ids.push(el.value); comboModal(); }
   if(a === 'ce_opt'){ syncEdit(); cEdit.slots[+el.dataset.s].opt = el.checked; }
   if(a === 'sheet'){ st.sheetUrl = el.value.trim(); save(); }
@@ -1710,7 +1768,7 @@ document.addEventListener('input', e => {
   if(e.target.id === 'rc_note'){ recipeNote = e.target.value; updateLinks(); }
   if(e.target.id === 'home_txt') onHomeInput(e.target.value);
   if(e.target.id === 'sl_q') onLocInput(e.target.value);
-  if(e.target.id === 'food_q'){ foodQ = e.target.value.trim(); const q = foodQ.toLowerCase(); document.querySelectorAll('.frw').forEach(r => { r.style.display = !q || r.dataset.n.includes(q) ? '' : 'none'; }); }
+  if(e.target.id === 'food_q'){ foodQ = e.target.value.trim(); const l = $('#food_list'); if(l) l.innerHTML = foodTab === 'combos' ? comboListHtml() : foodListHtml(); }
 });
 render();
 </script>
