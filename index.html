@@ -189,6 +189,33 @@ label.f textarea{display:block;width:100%;margin-top:4px}
 .spin{width:14px;height:14px;border:2.5px solid #b9d6b4;border-top-color:#2f6b3a;border-radius:50%;animation:sp 1.4s linear infinite;flex-shrink:0}
 @keyframes sp{to{transform:rotate(360deg)}}
 button.s.sm{padding:4px 11px;font-size:12px}
+
+/* v18: clean, sectioned layout */
+.card,.card:first-child{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:18px 16px;margin:14px 0;box-shadow:0 12px 24px -20px var(--shadow)}
+.card.mut{background:transparent;border-style:dashed;box-shadow:none;color:var(--mut)}
+.card h2{display:flex;align-items:center;gap:10px;font-size:20px;margin:0 0 12px}
+.card h2::before{content:"";flex:none;width:4px;height:20px;border-radius:3px;background:var(--acc)}
+.card.panel{padding:18px 16px}
+.dayh{margin:-18px -16px 10px;padding:14px 16px;background:var(--acc2);border-radius:21px 21px 0 0}
+.dayh h2{margin:0}.dayh h2::before{display:none}
+.meal,.li,.mrow,.srow,.stop,.frw,.sumline,.sug button,.grp,.acc{border-top-style:solid}
+.meal{padding:14px 0 12px}
+.mn{font-size:19px}
+.acc,.acc:first-child{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:0 16px;margin:12px 0;box-shadow:0 12px 24px -20px var(--shadow)}
+.acc-h{padding:16px 0}
+.acc-b{padding:0 0 18px}
+main>.seg{margin:14px 0 4px}
+.fav{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:11px 0;border-top:1px solid var(--line)}
+.fav:first-of-type{border-top:0}
+.fav-m{min-width:0;flex:1}.fav-m small{display:block;color:var(--mut);font-size:12px}
+.fav-a{display:flex;gap:6px;align-items:center;flex:none}
+.star{background:none;border:0;font-size:24px;line-height:1;color:var(--line);cursor:pointer;padding:2px 4px}
+.star.on{color:var(--ochre)}
+.eo{border-top:1px solid var(--line);padding:12px 0}
+.eo:first-of-type{border-top:0}
+.eo .row{justify-content:space-between;flex-wrap:nowrap}
+.eo select{padding:7px 8px;border-radius:10px}
+.subh{font:600 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:18px 0 6px}
 </style>
 </head>
 <body>
@@ -843,10 +870,11 @@ function vPlan(){
     d.forEach((m,mi) => {
             h += `<div class="meal ${mi===0?'first':''}"><div class="nm"><span class="mn">${esc(m.name)}</span><span class="mk">${Math.round(m.tot.k)}<small> kcal</small></span></div>
        <div class="mt">${m.cname?`<b>${esc(m.cname)}</b> · `:''}${m.type==='snack'?'Snack':m.type==='big'?'Big meal':'Light meal'}${m.want&&m.want!=='any'?' · '+(m.want==='hot'?'Hot':'Cold'):''}</div>
+       ${m.fast ? `<div class="ing"><span>${esc(m.fast.name)}${m.fast.q !== 1 ? ' ×' + m.fast.q : ''}</span><b>${m.fast.price ? money(m.fast.price) : 'eat out'}</b></div>` : ''}
        ${m.items.map(it => `<div class="ing"><span>${esc(foodById(it.id)?.name||'?')}</span><b>${qtyLabel(it)}</b></div>`).join('')}
        ${(m.add||[]).map(it => `<div class="ing add"><span>${esc(foodById(it.id)?.name||'?')} <small>add-on</small></span><b>${it.g} g</b></div>`).join('')}
        <div class="nums">P ${Math.round(m.tot.p)} · C ${Math.round(m.tot.c)} · F ${Math.round(m.tot.f)}</div>
-       <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">Find a recipe</button><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button>${(comboById(m.combo)||{}).note ? `<button class="s" data-act="showrecipe" data-id="${m.combo}">Saved recipe</button>` : ''}</div></div>`;
+       <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="eatout" data-d="${di}" data-m="${mi}">Eat out</button>${m.fast ? '' : `<button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">Find a recipe</button><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button>`}</div>`;
     });
     h += `</div>`;
   });
@@ -860,6 +888,7 @@ function vList(){
    <div class="sum"><div><b>${money(L.total)}</b>at ${esc(st.primary)}</div>
    <div><b class="${L.save>0?'ok':''}">${money(L.save)}</b>saved vs typical</div>
    ${st.budget>0?`<div><b class="${L.total>st.budget?'bad':'ok'}">${money(st.budget-L.total)}</b>${L.total>st.budget?'over':'left of'} ${money(st.budget)}</div>`:''}</div></div>`;
+  { const fc = fastCost(); if(fc > 0) h += `<div class="card"><h2>Eating out</h2><div class="mut">Meals from Eat out add about <b>${money(fc)}</b> over the plan. This is separate from the grocery total above.</div></div>`; }
   h += vShop(L);
   h += `<div class="card"><h2>Buy (biggest spend first)</h2>`;
   L.lines.forEach(l => {
@@ -994,11 +1023,108 @@ function foodShown(f){
 }
 const seg = (items, cur, act, cls) => `<div class="seg ${cls||''}">${items.map(([k,l]) => `<button class="${cur===k?'on':''}" data-act="${act}" data-v="${k}">${l}</button>`).join('')}</div>`;
 const CAM = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
-function foodTabs(){ return seg([['foods','Foods'],['combos','Combos']], foodTab, 'ftab', 'big'); }
+
+/* ---------- Meals: Canadian fast food ---------- */
+const FAST_DB = [
+ ['tims','Tim Hortons',[['Egg & Cheese English Muffin',300,16,30,12,4.2],['Bacon Breakfast Sandwich',370,18,32,18,5],['Sausage Breakfast Sandwich',470,19,32,29,5.5],['Chicken Club Sandwich',520,30,45,24,8],['Chipotle Chicken Wrap',440,25,38,20,7.5],['Everything Bagel with Cream Cheese',380,13,58,11,3.6],['Chicken Noodle Soup',100,8,12,2,3.8],['Medium Double Double',240,3,32,11,2.3],['Timbits 10 pack',400,5,52,20,4.3]]],
+ ['mcd',"McDonald's",[['Egg McMuffin',310,17,30,13,5.4],['McChicken',400,14,39,21,4.8],['McDouble',400,22,33,20,4],['Big Mac',570,26,46,30,7.3],['Quarter Pounder with Cheese',530,30,41,27,7.5],['Filet-O-Fish',380,15,38,18,6],['6 pc Chicken McNuggets',250,14,15,15,5],['Medium Fries',320,4,43,15,3.5],['Premium Chicken Wrap, grilled',420,27,41,16,7.5]]],
+ ['subway','Subway',[['Turkey Breast 6 in',280,18,46,3.5,7.5],['Veggie Delite 6 in',230,9,44,2.5,6.5],['Chicken Teriyaki 6 in',370,26,58,5,8.5],['Italian BMT 6 in',410,20,46,16,8.3],['Steak & Cheese 6 in',380,25,48,10,9.3],['Turkey Breast footlong',560,36,92,7,11]]],
+ ['aw','A&W',[['Buddy Burger',440,22,35,22,5.5],['Teen Burger',590,27,42,33,7.5],['Chicken Grill Deluxe',460,33,45,16,8.3],['Chubby Chicken Burger',560,24,50,29,7.8],['Onion Rings',340,5,42,17,4.2]]],
+ ['wendys',"Wendy's",[['Jr. Hamburger',250,13,26,10,2.8],["Dave's Single",570,30,39,33,7.5],['Grilled Chicken Sandwich',370,34,36,11,7.3],['Spicy Chicken Sandwich',500,28,48,22,7.5],['Chili, small',240,17,23,8,3.5],['Plain Baked Potato',270,7,61,0,3]]],
+ ['harveys',"Harvey's",[['Original Burger',520,25,37,31,8],['Grilled Chicken Sandwich',400,32,38,14,9],['Veggie Burger',470,16,57,19,8.5],['Medium Fries',400,5,52,19,4.3]]],
+ ['chalet','Swiss Chalet',[['Quarter Chicken, white, fries',730,48,65,30,16],['Half Chicken, rice and veg',640,62,42,24,19],['Chicken Caesar Salad',520,38,20,32,15]]],
+ ['chipotle','Chipotle',[['Chicken Burrito Bowl',650,45,65,20,13.5],['Chicken Burrito',1000,50,105,35,13.3],['Chicken Salad Bowl',480,42,22,25,13.5],['Steak Bowl',630,40,62,22,15]]],
+ ['sbux','Starbucks',[['Egg White & Red Pepper Egg Bites',170,12,9,8,5.3],['Turkey Bacon Cheddar Sandwich',230,17,28,6,5.8],['Protein Box',400,22,38,18,9],['Grande Latte, 2%',190,13,19,7,5.7]]],
+ ['popeyes','Popeyes',[['Chicken Sandwich',700,28,50,42,9],['3 pc Tenders',340,28,17,17,7],['Regular Cajun Fries',250,3,30,13,3.7]]],
+ ['kfc','KFC',[['Original Recipe Breast',390,39,11,21,4.5],['Original Recipe Drumstick',130,12,4,8,2.5],['Zinger Burger',550,26,52,26,7],['Mashed Potatoes and Gravy',120,2,17,4,3]]],
+ ['bk','Burger King',[['Hamburger',250,13,27,9,3],['Whopper',660,28,49,40,8.5],['Chicken Royale',580,25,52,30,8]]],
+ ['pizzapizza','Pizza Pizza',[['Pepperoni Slice',340,14,36,16,3.5],['Cheese Slice',290,13,36,10,3.2],['Chicken Caesar Salad',420,28,18,26,8.5]]]
+];
+function fastEnsure(){ if(!S.fast) S.fast = {chains:{}, favs:[], ov:{}, qty:{}, custom:[]}; return S.fast; }
+function chainName(c){ const r = FAST_DB.find(x => x[0] === c); return r ? r[1] : 'My items'; }
+function fastItems(c){
+  const F = fastEnsure(), r = FAST_DB.find(x => x[0] === c);
+  const base = r ? r[2].map((x,i) => ({id:c+':'+i, chain:c, name:x[0], k:x[1], p:x[2], c:x[3], f:x[4], price:x[5]})) : [];
+  return base.concat(F.custom.filter(x => x.chain === c)).map(it => F.ov[it.id] ? {...it, ...F.ov[it.id]} : it);
+}
+function fastById(id){ return fastItems(String(id).split(':')[0]).find(x => x.id === id); }
+function fastMacros(it, q){ q = q || 1; return `${Math.round(it.k*q)} kcal · P ${Math.round(it.p*q)} · C ${Math.round(it.c*q)} · F ${Math.round(it.f*q)}${it.price ? ' · ' + money(it.price*q) : ''}`; }
+function fastRow(it){
+  const F = fastEnsure(), on = F.favs.includes(it.id);
+  return `<div class="fav"><div class="fav-m"><b>${esc(it.name)}</b><small>${fastMacros(it)}</small></div>
+   <div class="fav-a"><button class="s" data-act="fedit" data-id="${it.id}">Adjust</button><button class="star ${on?'on':''}" data-act="fstar" data-id="${it.id}" aria-label="Favourite" aria-pressed="${on}">${on ? '★' : '☆'}</button></div></div>`;
+}
+function vFast(){
+  const F = fastEnsure(), favs = F.favs.map(fastById).filter(Boolean);
+  let h = `<div class="card"><h2>Favourites</h2>`;
+  h += favs.length ? favs.map(it => { const q = F.qty[it.id] || 1;
+    return `<div class="fav"><div class="fav-m"><b>${esc(it.name)}</b><small>${esc(chainName(it.chain))}${q !== 1 ? ' · ×' + q : ''}</small><small>${fastMacros(it, q)}</small></div>
+     <div class="fav-a"><button class="s" data-act="fedit" data-id="${it.id}">Adjust</button><button class="star on" data-act="fstar" data-id="${it.id}" aria-label="Remove favourite">★</button></div></div>`; }).join('')
+    : `<div class="mut">Star items below to keep them here. In the Plan tab, tap <b>Eat out</b> on any meal to swap in a favourite.</div>`;
+  h += `<div class="row" style="margin-top:12px"><button class="g" data-act="fnew">+ Add my own item</button></div></div>`;
+  const sel = FAST_DB.filter(c => F.chains[c[0]]);
+  h += `<div class="card"><h2>Canadian fast food</h2><div class="mut">Pick the chains you eat at. Numbers are approximate, so tap Adjust to match what you order.</div>
+   <div class="chips" style="margin-top:10px">${FAST_DB.map(c => `<button class="chip ${F.chains[c[0]] ? 'on' : ''}" data-act="fchain" data-c="${c[0]}">${esc(c[1])}</button>`).join('')}</div>`;
+  const mine = fastItems('custom');
+  if(mine.length) sel.push(['custom','My items',[]]);
+  sel.forEach(c => {
+    const open = !!openGrp['fc_' + c[0]], its = fastItems(c[0]);
+    h += `<div class="grp ${open ? 'open' : ''}"><button class="grp-t" data-act="grp" data-g="fc_${c[0]}" aria-expanded="${open}"><span class="gt">${esc(c[1])}</span><span class="gs">${its.length} items</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>${open ? `<div class="gb">${its.map(fastRow).join('')}</div>` : ''}</div>`;
+  });
+  if(!sel.length) h += `<div class="mut" style="margin-top:10px">No chains picked yet.</div>`;
+  return h + `</div>`;
+}
+function fastFields(it){
+  const n = (id, lab, v) => `<label class="f">${lab}<input id="${id}" type="number" inputmode="decimal" value="${v}"></label>`;
+  return `<label class="f">Name<input id="fe_name" value="${esc(it.name)}"></label>
+   <div class="grid" style="margin-top:10px">${n('fe_k','kcal',it.k)}${n('fe_p','Protein g',it.p)}${n('fe_c','Carbs g',it.c)}</div>
+   <div class="grid" style="margin-top:10px">${n('fe_f','Fat g',it.f)}${n('fe_price','Price $',it.price || 0)}</div>`;
+}
+function fastEditModal(id){
+  const it = fastById(id); if(!it) return;
+  const F = fastEnsure(), q = F.qty[id] || 1, isCustom = F.custom.some(x => x.id === id);
+  openModal(`<h3>Adjust item</h3><div class="mut" style="margin-bottom:10px">${esc(chainName(it.chain))}</div>${fastFields(it)}
+   <label class="f" style="margin-top:10px">Servings (for the plan)<select id="fe_q">${[0.5,1,1.5,2,3].map(v => `<option ${v === q ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+   <div class="row" style="margin-top:16px"><button class="b" data-act="fesave" data-id="${id}">Save</button>${isCustom ? `<button class="g" data-act="fedel" data-id="${id}">Delete</button>` : (F.ov[id] ? `<button class="g" data-act="fereset" data-id="${id}">Reset to default</button>` : '')}<button class="g" data-act="mclose2">Cancel</button></div>`);
+}
+function fastRead(){
+  const v = id => parseFloat($('#' + id).value) || 0;
+  return {name: $('#fe_name').value.trim() || 'Item', k:v('fe_k'), p:v('fe_p'), c:v('fe_c'), f:v('fe_f'), price:v('fe_price')};
+}
+function fastNewModal(){
+  openModal(`<h3>Add my own item</h3>
+   <label class="f">Chain<select id="fn_chain">${FAST_DB.map(c => `<option value="${c[0]}">${esc(c[1])}</option>`).join('')}<option value="custom">My items</option></select></label>
+   <div style="margin-top:10px">${fastFields({name:'', k:0, p:0, c:0, f:0, price:0})}</div>
+   <div class="row" style="margin-top:16px"><button class="b" data-act="fnewgo">Add and star</button><button class="g" data-act="mclose2">Cancel</button></div>`);
+}
+function eatOutModal(di, mi){
+  const F = fastEnsure(), favs = F.favs.map(fastById).filter(Boolean), T = targets()[mi], tk = T ? Math.round(T.k || T.kcal || 0) : 0;
+  if(!favs.length){
+    openModal(`<h3>Eat out</h3><div class="mut" style="margin-bottom:14px">No favourites yet. Pick your chains and star items in Foods, under Meals.</div><div class="row"><button class="b" data-act="gotofast">Open Meals</button><button class="g" data-act="mclose2">Close</button></div>`); return;
+  }
+  openModal(`<h3>Eat out</h3><div class="mut" style="margin-bottom:6px">${esc(S.plan.list[di][mi].name)}${tk ? ' target about ' + tk + ' kcal' : ''}. Pick a favourite and a serving.</div>` +
+   favs.map((it, i) => { const dq = tk ? Math.max(0.5, Math.min(3, Math.round(tk / it.k * 2) / 2)) : (F.qty[it.id] || 1);
+     return `<div class="eo"><div style="margin-bottom:6px"><b>${esc(it.name)}</b><div class="mut">${esc(chainName(it.chain))} · ${fastMacros(it)}</div></div>
+      <div class="row"><select id="eq_${i}">${[0.5,1,1.5,2,3].map(v => `<option ${v === dq ? 'selected' : ''}>${v}</option>`).join('')}</select><button class="s" data-act="eatgo" data-d="${di}" data-m="${mi}" data-id="${it.id}" data-qi="${i}">Use this</button></div></div>`; }).join('') +
+   `<div class="row" style="margin-top:12px"><button class="g" data-act="mclose2">Cancel</button></div>`);
+}
+function eatGo(di, mi, id, q){
+  const cur = S.plan.list[di][mi], it = fastById(id); if(!it) return;
+  S.plan.list[di][mi] = {id:cur.id, name:cur.name, type:cur.type, want:cur.want, items:[], add:[], tot:{k:it.k*q, p:it.p*q, c:it.c*q, f:it.f*q},
+    cname:chainName(it.chain), sig:'fast:' + id, fast:{id, name:it.name, q, price:(it.price || 0)*q}};
+  closeModal(); save(); render(); toast('Meal replaced');
+}
+function fastCost(){
+  if(!S.plan) return 0; const cnt = dayCounts(); let t = 0;
+  S.plan.list.forEach((d,i) => d.forEach(m => { if(m.fast) t += (m.fast.price || 0)*cnt[i]; }));
+  return t;
+}
+
+function foodTabs(){ return seg([['foods','Foods'],['meals','Meals'],['combos','Combos']], foodTab, 'ftab', 'big'); }
 function foodBar(ph, scan){
   return `<div class="fbar"><input id="food_q" type="search" autocomplete="off" placeholder="${ph}" value="${esc(foodQ)}">${scan ? `<button class="ibtn" data-act="scan" aria-label="Scan barcode">${CAM}</button>` : ''}</div>${seg(MEAL_FILTERS, foodMeal, 'fmeal')}`;
 }
-function vFoods(){ return foodTabs() + (foodTab === 'combos' ? vCombos() : vFoodList()); }
+function vFoods(){ return foodTabs() + (foodTab === 'combos' ? vCombos() : foodTab === 'meals' ? vFast() : vFoodList()); }
 function foodListHtml(){
   const st = S.settings;
   if(!storeSel || !st.stores.includes(storeSel)) storeSel = st.primary;
@@ -1722,6 +1848,18 @@ document.addEventListener('click', async e => {
     case 'showrecipe': showRecipe(el.dataset.id); break;
     case 'copynote': try{ await navigator.clipboard.writeText((comboById(el.dataset.id) || {}).note || ''); toast('Copied'); }catch(err){ toast('Select and copy the text'); } break;
     case 'ftab': foodTab = el.dataset.v; foodMeal = 'all'; foodQ = ''; openGrp = {}; render(); break;
+    case 'fchain': { const F = fastEnsure(); F.chains[el.dataset.c] = !F.chains[el.dataset.c]; if(F.chains[el.dataset.c]) openGrp['fc_' + el.dataset.c] = true; save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'fstar': { const F = fastEnsure(), i = F.favs.indexOf(el.dataset.id); if(i < 0) F.favs.push(el.dataset.id); else F.favs.splice(i, 1); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'fedit': fastEditModal(el.dataset.id); break;
+    case 'fesave': { const F = fastEnsure(), id = el.dataset.id, d = fastRead(); F.ov[id] = d; F.qty[id] = parseFloat($('#fe_q').value) || 1; closeModal(); save(); render(); break; }
+    case 'fereset': { const F = fastEnsure(); delete F.ov[el.dataset.id]; closeModal(); save(); render(); break; }
+    case 'fedel': { const F = fastEnsure(), id = el.dataset.id; F.custom = F.custom.filter(x => x.id !== id); F.favs = F.favs.filter(x => x !== id); delete F.ov[id]; closeModal(); save(); render(); break; }
+    case 'fnew': fastNewModal(); break;
+    case 'fnewgo': { const F = fastEnsure(), ch = $('#fn_chain').value, d = fastRead(), id = ch + ':x' + uid(); F.custom.push({id, chain:ch, ...d}); F.favs.push(id); F.chains[ch] = true; openGrp['fc_' + ch] = true; closeModal(); save(); render(); break; }
+    case 'eatout': eatOutModal(+el.dataset.d, +el.dataset.m); break;
+    case 'eatgo': eatGo(+el.dataset.d, +el.dataset.m, el.dataset.id, parseFloat($('#eq_' + el.dataset.qi).value) || 1); break;
+    case 'gotofast': closeModal(); view = 'foods'; foodTab = 'meals'; render(); window.scrollTo(0, 0); break;
+    case 'mclose2': closeModal(); break;
     case 'fmeal': foodMeal = el.dataset.v; openGrp = {}; render(); break;
     case 'grp': { const g = el.dataset.g, cur = el.closest('.grp').classList.contains('open'); openGrp[g] = !cur; const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'gtick': case 'gclear': { const on = a === 'gtick'; S.foods.filter(f => grpOf(f) === el.dataset.g && foodShown(f)).forEach(f => f.on = on); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
