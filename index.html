@@ -354,6 +354,22 @@ h2.sec{font:800 22px var(--serif);margin:22px 2px 8px;color:var(--ink)}
 .wchart{width:100%;height:auto;display:block}
 .wchart .gl{stroke:var(--line);stroke-width:1}.wchart .gt{fill:var(--mut);font-size:11px}
 .ibtn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* v24: docked opaque nav, full-screen eat out, quiet plan notes, portions */
+nav{left:0;right:0;bottom:0;padding:0;justify-content:stretch}
+nav div{width:100%;max-width:none;gap:2px;border-radius:0;border:0;border-top:1px solid var(--line);background:var(--paper);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 -6px 18px -12px var(--shadow);padding:8px 6px calc(8px + env(safe-area-inset-bottom))}
+nav button{padding:10px 2px 9px;font-size:12px;border-radius:16px}
+nav button svg{width:25px;height:25px}
+#fab{bottom:calc(92px + env(safe-area-inset-bottom));right:16px;width:58px;height:58px}
+main{padding-bottom:190px}
+.modal.full{align-items:stretch;background:var(--bg)}
+.modal.full .sheet{max-width:none;height:100%;max-height:none;border-radius:0;padding-top:calc(10px + env(safe-area-inset-top));padding-bottom:calc(30px + env(safe-area-inset-bottom));background:var(--bg)}
+.fback{position:sticky;top:0;z-index:2;display:block;margin:0 0 8px -6px;padding:10px 14px 10px 6px;background:var(--bg);border:0;color:var(--acc);font:inherit;font-size:17px;font-weight:700;cursor:pointer}
+.pnotes{margin:10px 0;color:var(--mut);font-size:13px}
+.pnotes summary{cursor:pointer;padding:6px 2px;font-weight:600}
+.pnotes p{margin:4px 0 6px;padding-left:2px}
+.portion{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:var(--mut)}
+.portion select{font:inherit;font-size:13px;padding:3px 6px;border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -368,7 +384,7 @@ h2.sec{font:800 22px var(--serif);margin:22px 2px 8px;color:var(--ink)}
 <script>
 /* ---------- helpers ---------- */
 const $ = (s, r=document) => r.querySelector(s);
-const BUILD = '2026-11-22.6';
+const BUILD = '2026-11-22.7';
 const uid = () => Math.random().toString(36).slice(2, 9);
 const rnd = n => Math.floor(Math.random() * n);
 const pick = a => a[rnd(a.length)];
@@ -1061,10 +1077,10 @@ function vPlan(){
   const L = groceryLines();
   const tp = st.kcal*st.pPct/100/4, tc = st.kcal*st.cPct/100/4, tf = st.kcal*st.fPct/100/9;
   { const av = planAvoided(); if(av.length) h += `<div class="warn"><b>Your plan has foods on your avoid list:</b> ${esc(av.join(', '))}. Generate a new plan to remove them.</div>`; }
-  h += warnings().map(w => `<div class="warn">${esc(w)}</div>`).join('');
   h += `<div class="card panel"><div class="ringrow">${ringSVG(a.k, st.kcal)}<div class="macros">
     ${macroBar('Protein', a.p, tp, 'var(--acc)')}${macroBar('Carbs', a.c, tc, 'var(--ochre)')}${macroBar('Fat', a.f, tf, 'var(--terra)')}</div></div>
     <div class="sumline"><span>${P.days}-day plan${P.rotate>1?`, ${P.rotate} rotating menus`:P.days>1?', same meals daily':''}</span><span>Est. total <b>${money(L.total)}</b></span></div></div>`;
+  { const wn = warnings(); if(wn.length) h += `<details class="pnotes"><summary>Plan notes (${wn.length})</summary>${wn.map(w => `<p>${esc(w)}</p>`).join('')}</details>`; }
   { const rcn = rcCounts(); h += `<div class="card"><h2>Recipes</h2><div class="mut">Set a style on each meal if you like, then one tap writes a recipe for every meal in the plan, using your allergies, equipment and pantry.</div>
      <div class="row" style="margin-top:12px"><button class="b" style="flex:1" data-act="rcopen">Get my recipes</button><button class="g" data-act="rppaste">Paste recipes</button></div>
      <div class="mut" style="margin-top:8px">${rcn.have} of ${rcn.n} meals have a recipe saved.</div></div>`; }
@@ -1255,7 +1271,10 @@ function menuFor(date){
   return {day: P.list[n % P.rotate], n, past: n >= P.days};
 }
 function plannedK(menu, i){ const st = S.settings; return menu && menu.day[i] ? menu.day[i].tot.k : targets()[i].k; }
-function logAdd(date, mid, e){ logMeal(date, mid).entries.push({name:e.name, k:Math.round(e.k), p:Math.round(e.p*10)/10, c:Math.round(e.c*10)/10, f:Math.round(e.f*10)/10, src:e.src || 'manual', ms:e.ms || null}); logMeal(date, mid).skipped = false; save(); }
+let lgQ = 1;
+const QL = {0.25:'¼', 0.5:'½', 0.75:'¾', 1:'1', 1.5:'1½', 2:'2'};
+function qLabel(q){ return QL[q] || String(q); }
+function logAdd(date, mid, e){ logMeal(date, mid).entries.push({name:e.name, k:Math.round(e.k), p:Math.round(e.p*10)/10, c:Math.round(e.c*10)/10, f:Math.round(e.f*10)/10, src:e.src || 'manual', ms:e.ms || null, q:e.q || 1}); logMeal(date, mid).skipped = false; save(); }
 let calM = null, wRange = '6M', actOpen = false;
 const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c.8 3.6 5.2 5.2 5.2 10.3a5.2 5.2 0 0 1-10.4 0c0-2.1 1-3.4 2.1-4.5.3 1.7 1 2.4 2 2.6C10.6 8.6 10.7 5.6 12 2.5z"/></svg>';
 const CHEV = '<svg class="chev r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
@@ -1276,11 +1295,7 @@ function vLog(){
    <div class="lg-bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, Math.max(0, tot.k / tgt * 100)).toFixed(0)}%"></i></div></div>
    <div class="card td-card"><div class="mcs">${[['Carbs', tot.c, tc, 'var(--ochre)'], ['Fat', tot.f, tf, 'var(--terra)'], ['Protein', tot.p, tp, 'var(--acc)']].map(([n, v, t, c]) => `<div class="mc"><span>${n}</span><b>${Math.round(v)} g <small>/ ${Math.round(t)}</small></b><div class="mbt"><i style="width:${Math.min(100, t ? v / t * 100 : 0).toFixed(0)}%;background:${c}"></i></div></div>`).join('')}</div></div>`;
   if(haveBurn) h += `<div class="card td-card"><div class="lg-trio" style="margin:0;padding:0;border:0"><div><b>${Math.round(tot.k)}</b>eaten</div><div><b>${Math.round(burned)}</b>burned</div><div><b class="${defi >= 0 ? 'ok' : 'bad'}">${Math.round(Math.abs(defi))}</b>${defi >= 0 ? 'deficit' : 'surplus'}</div></div></div>`;
-  h += `<h2 class="sec">Healthy habits</h2><div class="card hab">
-   <div class="hrow"><div class="hm"><b>Water</b><small>${(L.water || 0).toFixed(1)} cups${(L.water || 0) === 0 ? ' (you must be thirsty!)' : ' of ' + (st.waterGoal || 8)}</small></div><div class="hb"><button class="rb" data-act="water" data-v="-1" aria-label="Less water">−</button><button class="rb" data-act="water" data-v="1" aria-label="More water">+</button></div></div>
-   <button class="hrow" data-act="actopen"><div class="hm"><b>Exercise</b><small>${L.active > 0 ? Math.round(L.active) + ' active calories burned' : 'Track exercise to see calorie burn'}</small></div>${CHEV}</button>
-   <button class="hrow" data-act="actopen"><div class="hm"><b>Steps</b><small>${Math.round(L.steps || 0).toLocaleString()} steps ${date === today() ? 'today' : 'that day'}</small></div>${CHEV}</button></div>
-   <h2 class="sec">Weight</h2><div class="card hab"><button class="hrow" data-act="view" data-v="weight"><div class="hm"><b>${lw ? wFmt(lw.v) : 'Add your first weigh-in'}</b><small>${lw ? 'Logged ' + dayLabel(lw.d) : 'Track your trend over time'}</small></div>${CHEV}</button></div>`;
+  h += `<h2 class="sec">Weight</h2><div class="card hab"><button class="hrow" data-act="view" data-v="weight"><div class="hm"><b>${lw ? wFmt(lw.v) : 'Add your first weigh-in'}</b><small>${lw ? 'Logged ' + dayLabel(lw.d) : 'Track your trend over time'}</small></div>${CHEV}</button></div>`;
   h += `<h2 class="sec">Meals</h2><div class="card">`;
   if(!menu) h += `<div class="mut" style="margin-bottom:8px">${S.plan ? 'No plan covers this date, so log what you ate below.' : 'Generate a plan to see planned meals here. You can still log what you eat.'}</div>`;
   else if(menu.past) h += `<div class="mut" style="margin-bottom:8px">Your plan covered ${S.plan.days} days. Showing the same rotation.</div>`;
@@ -1290,14 +1305,23 @@ function vLog(){
     h += `<div class="lgm"><div class="lgm-h"><b>${esc(sl.name)}</b><span class="mut">${lm.entries.length ? `<span class="done-t"><b>${Math.round(lk)}</b></span> / ` : ''}${Math.round(plannedK(menu, i))} kcal</span></div>
      ${pm && !lm.entries.length ? `<div class="lgm-p">${pm.cname ? esc(pm.cname) + ': ' : ''}${esc(names)}</div>` : ''}
      ${lm.skipped ? '<div class="mut">Skipped</div>' : ''}
-     ${lm.entries.map((e, j) => `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small></span><button class="x" data-act="lgdel" data-m="${sl.id}" data-i="${j}" aria-label="Remove">×</button></div>${e.ms ? rateRow(e.ms) : ''}`).join('')}
+     ${lm.entries.map((e, j) => lgEntry(e, sl.id, j) + (e.ms ? rateRow(e.ms) : '')).join('')}
      <div class="btns"><button class="s lgb" data-act="lgsheet" data-mi="${i}">Log</button>${pm && !lm.entries.length ? `<button class="s" data-act="lgplan" data-mi="${i}">Ate as planned</button>` : ''}${pm && pm.recipe ? `<button class="s" data-act="lgrecipe" data-d="${menu.n % S.plan.rotate}" data-m="${i}">Recipe</button>` : ''}</div></div>`;
   });
   const ex = (L.meals.extra || {entries:[]}).entries;
-  h += `<div class="lgm"><div class="lgm-h"><b>Other / snacks</b></div>${ex.map((e, j) => `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small></span><button class="x" data-act="lgdel" data-m="extra" data-i="${j}" aria-label="Remove">×</button></div>`).join('')}
+  h += `<div class="lgm"><div class="lgm-h"><b>Other / snacks</b></div>${ex.map((e, j) => lgEntry(e, 'extra', j)).join('')}
     <div class="btns"><button class="s lgb" data-act="lgcustom" data-m="extra">Add item</button><button class="s" data-act="lgout" data-mi="-1">Eat out</button></div></div></div>`;
+  h += `<h2 class="sec">Healthy habits</h2><div class="card hab">
+   <div class="hrow"><div class="hm"><b>Water</b><small>${(L.water || 0).toFixed(1)} cups${(L.water || 0) === 0 ? ' (you must be thirsty!)' : ' of ' + (st.waterGoal || 8)}</small></div><div class="hb"><button class="rb" data-act="water" data-v="-1" aria-label="Less water">−</button><button class="rb" data-act="water" data-v="1" aria-label="More water">+</button></div></div>
+   <button class="hrow" data-act="actopen"><div class="hm"><b>Exercise</b><small>${L.active > 0 ? Math.round(L.active) + ' active calories burned' : 'Track exercise to see calorie burn'}</small></div>${CHEV}</button>
+   <button class="hrow" data-act="actopen"><div class="hm"><b>Steps</b><small>${Math.round(L.steps || 0).toLocaleString()} steps ${date === today() ? 'today' : 'that day'}</small></div>${CHEV}</button></div>`;
   h += `<h2 class="sec">Notes</h2><div class="card"><textarea data-act="lg_note" rows="2" placeholder="Add a note" style="width:100%;border:0;background:transparent;padding:0;resize:vertical">${esc(L.note || '')}</textarea></div>`;
   return h;
+}
+function lgEntry(e, mid, j){
+  const q = e.q || 1, opts = [0.25,0.5,0.75,1,1.5,2];
+  if(!opts.includes(q)) opts.push(q);
+  return `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small><label class="portion">Portion <select data-act="lgport" data-m="${mid}" data-i="${j}">${opts.sort((a, b) => a - b).map(v => `<option value="${v}" ${v === q ? 'selected' : ''}>${qLabel(v)}</option>`).join('')}</select></label></span><button class="x" data-act="lgdel" data-m="${mid}" data-i="${j}" aria-label="Remove">×</button></div>`;
 }
 function rerender(){ render(); if(actOpen) actModal(); }
 function actModal(){
@@ -1312,9 +1336,11 @@ function actModal(){
   actOpen = true;
 }
 function lgSheet(i){
+  const qs = [0.25,0.5,0.75,1,1.5,2];
   const st = S.settings, sl = st.meals[i], date = logDate || today(), menu = menuFor(date), pm = menu && menu.day[i], L = logEnsure(date), lm = L.meals[sl.id];
   openModal(`<h3>Log ${esc(sl.name)}</h3><div class="mut" style="margin-bottom:12px">${Math.round(plannedK(menu, i))} kcal planned</div>
-   <div class="opts">${pm && !(lm && lm.entries.length) ? `<button class="opt" data-act="lgplan" data-mi="${i}"><b>✓ Ate as planned</b><small>${esc(mealTitle(pm))}</small></button>` : ''}
+   ${pm && !(lm && lm.entries.length) ? `<div class="subh" style="margin-top:0">How much did you eat?</div><div class="chips">${qs.map(v => `<button class="chip ${lgQ === v ? 'on' : ''}" data-act="lgq" data-v="${v}" data-mi="${i}">${qLabel(v)}</button>`).join('')}</div>` : ''}
+   <div class="opts" style="margin-top:10px">${pm && !(lm && lm.entries.length) ? `<button class="opt" data-act="lgplan" data-mi="${i}" data-q="sheet"><b>✓ Ate ${lgQ === 1 ? 'as planned' : qLabel(lgQ) + ' of the plan'}</b><small>${esc(mealTitle(pm))}${lgQ !== 1 ? ' · ' + Math.round(pm.tot.k * lgQ) + ' kcal' : ''}</small></button>` : ''}
    <button class="opt" data-act="lgout" data-mi="${i}"><b>Eat out</b><small>Pick a chain and see what fits</small></button>
    <button class="opt" data-act="lgcustom" data-m="${sl.id}"><b>Add an item</b><small>Name and calories</small></button>
    ${lm && (lm.entries.length || lm.skipped) ? '' : `<button class="opt" data-act="lgskip" data-m="${sl.id}"><b>Skip this meal</b><small>Not eating it today</small></button>`}</div>`);
@@ -1394,7 +1420,7 @@ function logOutModal(){
    <div class="subh">Where</div>
    <div class="chips">${chains.map(c => `<button class="chip sm ${lo.chain === c[0] ? 'on' : ''}" data-act="lochain" data-c="${c[0]}">${esc(c[1])}</button>`).join('')}</div>
    <div class="subh">Options, closest to your calories first</div><div id="lo_list">${loList()}</div>
-   <div class="row" style="margin-top:12px"><button class="g" data-act="mclose2">Close</button></div>`);
+   <div class="row" style="margin-top:12px"><button class="g" data-act="mclose2">Close</button></div>`, true);
 }
 document.addEventListener('input', e => {
   if(e.target && e.target.id === 'lo_budget'){ lo.budget = parseFloat(e.target.value) || 0; const l = $('#lo_list'); if(l) l.innerHTML = loList(); }
@@ -1711,13 +1737,13 @@ function fastNewModal(){
 function eatOutModal(di, mi){
   const F = fastEnsure(), favs = F.favs.map(fastById).filter(Boolean), T = targets()[mi], tk = T ? Math.round(T.k || T.kcal || 0) : 0;
   if(!favs.length){
-    openModal(`<h3>Eat out</h3><div class="mut" style="margin-bottom:14px">No favourites yet. Pick your chains and star items in Foods, under Meals.</div><div class="row"><button class="b" data-act="gotofast">Open Meals</button><button class="g" data-act="mclose2">Close</button></div>`); return;
+    openModal(`<h3>Eat out</h3><div class="mut" style="margin-bottom:14px">No favourites yet. Pick your chains and star items in Foods, under Meals.</div><div class="row"><button class="b" data-act="gotofast">Open Meals</button><button class="g" data-act="mclose2">Close</button></div>`, true); return;
   }
   openModal(`<h3>Eat out</h3><div class="mut" style="margin-bottom:6px">${esc(S.plan.list[di][mi].name)}${tk ? ' target about ' + tk + ' kcal' : ''}. Pick a favourite and a serving.</div>` +
    favs.map((it, i) => { const dq = tk ? Math.max(0.5, Math.min(3, Math.round(tk / it.k * 2) / 2)) : (F.qty[it.id] || 1);
      return `<div class="eo"><div style="margin-bottom:6px"><b>${esc(it.name)}</b><div class="mut">${esc(chainName(it.chain))} · ${fastMacros(it)}</div></div>
       <div class="row"><select id="eq_${i}">${[0.5,1,1.5,2,3].map(v => `<option ${v === dq ? 'selected' : ''}>${v}</option>`).join('')}</select><button class="s" data-act="eatgo" data-d="${di}" data-m="${mi}" data-id="${it.id}" data-qi="${i}">Use this</button></div></div>`; }).join('') +
-   `<div class="row" style="margin-top:12px"><button class="g" data-act="mclose2">Cancel</button></div>`);
+   `<div class="row" style="margin-top:12px"><button class="g" data-act="mclose2">Cancel</button></div>`, true);
 }
 function eatGo(di, mi, id, q){
   const cur = S.plan.list[di][mi], it = fastById(id); if(!it) return;
@@ -2143,7 +2169,7 @@ function removeStore(name){
 }
 
 /* ---------- modals ---------- */
-function openModal(html){ actOpen = false; if(typeof closeBanner==='function') closeBanner(); $('#modal').innerHTML = `<div class="modal" data-act="mclose"><div class="sheet">${html}</div></div>`; }
+function openModal(html, full){ actOpen = false; if(typeof closeBanner==='function') closeBanner(); $('#modal').innerHTML = `<div class="modal${full ? ' full' : ''}" data-act="mclose"><div class="sheet">${full ? '<button class="fback" data-act="mclose2">‹ Back</button>' : ''}${html}</div></div>`; }
 function closeModal(){ actOpen = false; stopScan(); $('#modal').innerHTML = ''; }
 
 
@@ -2569,7 +2595,8 @@ document.addEventListener('click', async e => {
     case 'water': { const L = logEnsure(logDate || today()); L.water = Math.max(0, (L.water || 0) + +el.dataset.v); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'actopen': actModal(); break;
     case 'actclose': closeModal(); render(); break;
-    case 'lgsheet': lgSheet(+el.dataset.mi); break;
+    case 'lgsheet': lgQ = 1; lgSheet(+el.dataset.mi); break;
+    case 'lgq': lgQ = parseFloat(el.dataset.v) || 1; lgSheet(+el.dataset.mi); break;
     case 'fab': fabSheet(); break;
     case 'fabmeal': { openModal(`<h3>Which meal?</h3><div class="opts">${S.settings.meals.map((m, i) => `<button class="opt" data-act="lgsheet" data-mi="${i}"><b>${esc(m.name)}</b></button>`).join('')}</div>`); break; }
     case 'fabwater': { const L = logEnsure(logDate || today()); L.water = (L.water || 0) + 1; save(); closeModal(); toast('Water: ' + L.water.toFixed(1) + ' cups'); if(view === 'log') render(); break; }
@@ -2583,7 +2610,7 @@ document.addEventListener('click', async e => {
     case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); L.burn = 0; save(); rerender(); break; }
     case 'lgdel': { const L = logMeal(logDate || today(), el.dataset.m); L.entries.splice(+el.dataset.i, 1); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgskip': { closeModal(); logMeal(logDate || today(), el.dataset.m).skipped = true; save(); render(); break; }
-    case 'lgplan': { closeModal(); const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names, k:pm.tot.k, p:pm.tot.p, c:pm.tot.c, f:pm.tot.f, src:'plan', ms: pm.fast ? null : {sig:mealSig(pm), name:mealTitle(pm), ids:pm.items.map(i => i.id), kind:kindOf(sl)}}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'lgplan': { closeModal(); const q = el.dataset.q === 'sheet' ? lgQ : 1; lgQ = 1; const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names + (q !== 1 ? ` (${qLabel(q)} portion)` : ''), k:pm.tot.k*q, p:pm.tot.p*q, c:pm.tot.c*q, f:pm.tot.f*q, q, src:'plan', ms: pm.fast ? null : {sig:mealSig(pm), name:mealTitle(pm), ids:pm.items.map(i => i.id), kind:kindOf(sl)}}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgcustom': lgCustomModal(el.dataset.m); break;
     case 'lgcustomgo': { const v = id => parseFloat($('#' + id).value) || 0, name = $('#lc_name').value.trim() || 'Item'; if(!v('lc_k')){ toast('Add the calories'); break; } logAdd(logDate || today(), el.dataset.m, {name, k:v('lc_k'), p:v('lc_p'), c:v('lc_c'), f:v('lc_f')}); closeModal(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgout': { lo.mi = +el.dataset.mi; lo.mealId = lo.mi >= 0 ? S.settings.meals[lo.mi].id : 'extra'; const b = loBudgets(); lo.budget = lo.mi >= 0 ? Math.round(b.target) : Math.max(0, Math.round(b.remaining)); lo.chain = null; logOutModal(); break; }
@@ -2672,6 +2699,8 @@ document.addEventListener('change', e => {
     save(); if(view==='settings') render(); return;
   }
   const a = el.dataset.act;
+  if(a === 'lgport'){ const lm = logMeal(logDate || today(), el.dataset.m), e = lm.entries[+el.dataset.i], nq = parseFloat(el.value) || 1, oq = e.q || 1;
+    if(e){ const r = nq / oq; e.k = Math.round(e.k * r); e.p = Math.round(e.p * r * 10) / 10; e.c = Math.round(e.c * r * 10) / 10; e.f = Math.round(e.f * r * 10) / 10; e.q = nq; e.name = e.name.replace(/ \([^()]* portion\)$/, '') + (nq !== 1 && e.src === 'plan' ? ` (${qLabel(nq)} portion)` : ''); save(); const y = window.scrollY; render(); window.scrollTo(0, y); } return; }
   if(a === 'lg_note'){ logEnsure(logDate || today()).note = el.value; save(); return; }
   if(a === 'lg_steps'){ logEnsure(logDate || today()).steps = Math.max(0, parseFloat(el.value) || 0); save(); return; }
   if(a === 'lg_active'){ logEnsure(logDate || today()).active = Math.max(0, parseFloat(el.value) || 0); save(); render(); return; }
