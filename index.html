@@ -10,6 +10,7 @@
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <link rel="manifest" href="manifest.webmanifest">
 <style>
 :root{
@@ -274,6 +275,7 @@ main>.seg{margin:14px 0 4px}
 <script>
 /* ---------- helpers ---------- */
 const $ = (s, r=document) => r.querySelector(s);
+const BUILD = '2026-11-22.5';
 const uid = () => Math.random().toString(36).slice(2, 9);
 const rnd = n => Math.floor(Math.random() * n);
 const pick = a => a[rnd(a.length)];
@@ -908,6 +910,14 @@ function mealPrompt(m, o={}){
 }
 
 /* ---------- UI ---------- */
+function checkUpdate(){
+  fetch(location.pathname + '?_=' + Date.now(), {cache:'no-store'}).then(r => r.text()).then(t => {
+    const m = t.match(/const BUILD = '([^']+)'/);
+    if(m && m[1] !== BUILD) $('#banner').innerHTML = `<div class="bn" role="status"><div class="bn-i">↻</div><div class="bn-m"><b>New version ready</b><span>Reload to get the latest features</span></div><div class="bn-a"><button data-act="reloadapp">Reload</button></div></div>`;
+  }).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') checkUpdate(); });
+setTimeout(checkUpdate, 1500);
 function closeBanner(){ const b = $('#banner'); if(b) b.innerHTML = ''; clearTimeout(banner.t); }
 function banner(note){
   const L = groceryLines(), P = S.plan;
@@ -1700,6 +1710,7 @@ function vSettings(){
             <li>Credentials, Create credentials, OAuth client ID, type <b>Web application</b>. Under Authorized JavaScript origins add <b>${esc(location.origin)}</b>.</li>
             <li>Paste the client ID above. No secret is needed.</li></ol>
            <div class="mut">Google caps unverified apps at 100 users, which is plenty for personal use. Sign-in lasts about an hour, so tap Sync when you open the Log.</div></details>`)
+       + acc('about', 'About', 'Version ' + BUILD, `<div class="mut">Version ${BUILD}. If a new feature is missing, reload to fetch the latest copy.</div><div class="row" style="margin-top:10px"><button class="b" data-act="reloadapp">Reload latest version</button></div>`)
        + acc('sheet', 'Google Sheet', st.sheetUrl ? 'Connected' : 'Not connected', sheet);
 }
 
@@ -2386,6 +2397,7 @@ document.addEventListener('click', async e => {
     case 'mfav': { const info = planInfo(+el.dataset.d, +el.dataset.m), r = rateRec(info); r.fav = !r.fav; save(); const y = window.scrollY; render(); window.scrollTo(0, y); toast(r.fav ? 'Added to favourite meals' : 'Removed from favourites'); break; }
     case 'favsig': { const r = (S.ratings || {})[el.dataset.sig]; if(r){ r.fav = !r.fav; save(); const y = window.scrollY; render(); window.scrollTo(0, y); } break; }
     case 'rate': { const ms = findMs(el.dataset.sig); if(ms){ const r = rateRec(ms), v = +el.dataset.v; r.stars = r.stars === v ? 0 : v; save(); const y = window.scrollY; render(); window.scrollTo(0, y); } break; }
+    case 'reloadapp': { try{ if(window.caches){ const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } }catch(err){} location.replace(location.pathname + '?v=' + Date.now()); break; }
     case 'fitsync': fitSync(); break;
     case 'lgday': logDate = addDays(logDate || today(), +el.dataset.v); render(); break;
     case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); L.burn = 0; save(); render(); break; }
