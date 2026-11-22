@@ -901,6 +901,7 @@ const ICONS = {
  settings:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'
 };
 function render(){
+  if(S.settings.gclient) loadGIS().catch(() => {});
   const tabs = [['plan','Plan'],['log','Log'],['list','List'],['foods','Foods'],['settings','Settings']];
   $('#nav').innerHTML = tabs.map(t => `<button class="${view===t[0]?'on':''}" data-act="view" data-v="${t[0]}" aria-label="${t[1]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t[0]]}</svg>${t[1]}</button>`).join('');
   $('#sub').textContent = S.foods.filter(f=>f.on).length + ' foods ticked';
@@ -1125,19 +1126,20 @@ function logAdd(date, mid, e){ logMeal(date, mid).entries.push({name:e.name, k:M
 function vLog(){
   const st = S.settings, date = logDate || (logDate = today()), L = logEnsure(date), menu = menuFor(date), tot = logTotals(date);
   const tgt = st.kcal, left = tgt - tot.k, over = left < 0;
-  const burned = (st.baseBurn || 0) + (L.active || 0), defi = burned - tot.k;
+  const burned = L.burn > 0 ? L.burn : (st.baseBurn || 0) + (L.active || 0), defi = burned - tot.k, haveBurn = L.burn > 0 || st.baseBurn > 0;
   const tp = tgt*st.pPct/100/4, tc = tgt*st.cPct/100/4, tf = tgt*st.fPct/100/9;
   let h = `<div class="lg-nav"><button class="ibtn" data-act="lgday" data-v="-1" aria-label="Previous day">‹</button><b>${date === today() ? 'Today' : dayLabel(date)}${date === today() ? ' · ' + dayLabel(date) : ''}</b><button class="ibtn" data-act="lgday" data-v="1" aria-label="Next day">›</button></div>`;
   h += `<div class="card panel"><div class="lg-big ${over ? 'over' : ''}"><b>${Math.abs(Math.round(left))}</b><span class="mut">kcal ${over ? 'over target' : 'left today'}</span></div>
    <div class="lg-bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, Math.max(0, tot.k / tgt * 100)).toFixed(0)}%"></i></div>
    <div class="mut">${Math.round(tot.k)} eaten of ${tgt} kcal target</div>
    <div style="margin-top:10px">${macroBar('Protein', tot.p, tp, 'var(--acc)')}${macroBar('Carbs', tot.c, tc, 'var(--ochre)')}${macroBar('Fat', tot.f, tf, 'var(--terra)')}</div>
-   ${st.baseBurn > 0 ? `<div class="lg-trio"><div><b>${Math.round(tot.k)}</b>eaten</div><div><b>${Math.round(burned)}</b>burned</div><div><b class="${defi >= 0 ? 'ok' : 'bad'}">${Math.round(Math.abs(defi))}</b>${defi >= 0 ? 'deficit' : 'surplus'}</div></div>` : `<div class="mut" style="margin-top:12px">Set your daily baseline burn in Settings → Targets to see your deficit.</div>`}</div>`;
+   ${haveBurn ? `<div class="lg-trio"><div><b>${Math.round(tot.k)}</b>eaten</div><div><b>${Math.round(burned)}</b>burned</div><div><b class="${defi >= 0 ? 'ok' : 'bad'}">${Math.round(Math.abs(defi))}</b>${defi >= 0 ? 'deficit' : 'surplus'}</div></div>` : `<div class="mut" style="margin-top:12px">Connect Fitbit in Settings, or set a baseline burn in Settings → Targets, to see your deficit.</div>`}</div>`;
   h += `<div class="card"><h2>Activity</h2><div class="grid2">
     <label class="f">Steps<input type="number" inputmode="numeric" data-act="lg_steps" value="${L.steps || ''}" placeholder="0"></label>
     <label class="f">Active calories burned<input type="number" inputmode="numeric" data-act="lg_active" value="${L.active || ''}" placeholder="0"></label></div>
-    <div class="row" style="margin-top:10px"><button class="g" data-act="lg_est">Estimate from steps</button></div>
-    <div class="mut" style="margin-top:8px">Active calories are on top of your baseline burn. Steps give a rough estimate of about 0.04 kcal each.</div></div>`;
+    <div class="row" style="margin-top:10px">${st.gclient ? '<button class="b" data-act="fitsync">Sync Fitbit</button>' : ''}<button class="g" data-act="lg_est">Estimate from steps</button></div>
+    ${fitMsg ? `<div class="mut" style="margin-top:8px">${esc(fitMsg)}</div>` : ''}
+    <div class="mut" style="margin-top:8px">${L.burn > 0 ? 'Burned uses your Fitbit total for the day (resting plus active). ' : 'Without Fitbit, burned is your baseline plus active calories. '}${st.gclient ? '' : 'Connect Fitbit under Settings. '}Steps estimate about 0.04 kcal each.</div></div>`;
   h += `<div class="card"><h2>Meals</h2>`;
   if(!menu) h += `<div class="mut" style="margin-bottom:8px">${S.plan ? 'No plan covers this date, so log what you ate below.' : 'Generate a plan to see planned meals here. You can still log what you eat.'}</div>`;
   else if(menu.past) h += `<div class="mut" style="margin-bottom:8px">Your plan covered ${S.plan.days} days. Showing the same rotation.</div>`;
@@ -1192,6 +1194,55 @@ function logOutModal(){
 document.addEventListener('input', e => {
   if(e.target && e.target.id === 'lo_budget'){ lo.budget = parseFloat(e.target.value) || 0; const l = $('#lo_list'); if(l) l.innerHTML = loList(); }
 });
+
+/* ---------- Fitbit via Google Health API ---------- */
+let gisP = null, gTok = null, fitMsg = '';
+function loadGIS(){
+  if(window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+  if(!gisP) gisP = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = res; sc.onerror = () => { gisP = null; rej(new Error('Google sign-in did not load')); }; document.head.appendChild(sc); });
+  return gisP;
+}
+/* call straight from a tap so the sign-in popup is allowed */
+function gToken(){
+  return new Promise((res, rej) => {
+    if(gTok && gTok.exp > Date.now() + 60000) return res(gTok.t);
+    const cid = (S.settings.gclient || '').trim();
+    if(!cid) return rej(new Error('Add your Google client ID in Settings first'));
+    if(!(window.google && google.accounts && google.accounts.oauth2)) return rej(new Error('Google sign-in is still loading. Tap again in a moment.'));
+    const tc = google.accounts.oauth2.initTokenClient({client_id: cid, scope: 'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
+      callback: r => { if(r.error) rej(new Error(r.error_description || r.error)); else { gTok = {t:r.access_token, exp:Date.now() + (r.expires_in || 3600)*1000}; S.settings.gok = true; save(); res(gTok.t); } },
+      error_callback: e => rej(new Error(e.type === 'popup_closed' ? 'Sign-in was closed' : (e.message || e.type || 'Sign-in failed')))});
+    tc.requestAccessToken({prompt: S.settings.gok ? '' : 'consent'});
+  });
+}
+async function hRoll(tok, type, date){
+  const a = date.split('-').map(Number), b = addDays(date, 1).split('-').map(Number);
+  const cd = x => ({date:{year:x[0], month:x[1], day:x[2]}, time:{hours:0, minutes:0, seconds:0, nanos:0}});
+  const r = await fetch(`https://health.googleapis.com/v4/users/me/dataTypes/${type}/dataPoints:dailyRollUp`, {method:'POST', headers:{Authorization:'Bearer ' + tok, 'Content-Type':'application/json', Accept:'application/json'}, body: JSON.stringify({range:{start:cd(a), end:cd(b)}, windowSizeDays:1})});
+  if(!r.ok){ const t = await r.text().catch(() => ''); throw new Error('HTTP ' + r.status + (t ? ': ' + t.replace(/\s+/g, ' ').slice(0, 180) : '')); }
+  return r.json();
+}
+const numIn = o => { if(o == null) return null; if(typeof o === 'number') return o; if(typeof o === 'string' && o.trim() !== '' && !isNaN(+o)) return +o; if(typeof o === 'object'){ for(const k in o){ const v = numIn(o[k]); if(v != null) return v; } } return null; };
+function fitSync(){
+  const date = logDate || today();
+  fitMsg = 'Connecting to Google Health...'; if(view === 'log' || view === 'settings') render();
+  gToken().then(async tok => {
+    fitMsg = 'Reading your Fitbit data...'; if(view === 'log' || view === 'settings') render();
+    const R = await Promise.allSettled([hRoll(tok, 'steps', date), hRoll(tok, 'total-calories', date), hRoll(tok, 'active-energy-burned', date)]);
+    const pick = (x, key) => { if(x.status !== 'fulfilled') return null; const dp = (x.value.rollupDataPoints || [])[0]; return dp && dp[key] != null ? numIn(dp[key]) : null; };
+    const L = logEnsure(date), steps = pick(R[0], 'steps'), burn = pick(R[1], 'totalCalories'), act = pick(R[2], 'activeEnergyBurned');
+    if(steps == null && burn == null && act == null){
+      const bad = R.find(x => x.status === 'rejected');
+      throw new Error(bad ? bad.reason.message : 'No data for this day yet. Open the Google Health app and sync your Fitbit, then try again.');
+    }
+    if(steps != null) L.steps = Math.round(steps);
+    if(burn != null) L.burn = Math.round(burn);
+    if(act != null) L.active = Math.round(act);
+    L.synced = Date.now(); save();
+    fitMsg = 'Synced ' + new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) + (R.some(x => x.status === 'rejected') ? ' (some data was unavailable)' : '');
+    render();
+  }).catch(e => { fitMsg = 'Could not sync: ' + e.message; if(/401/.test(e.message)) gTok = null; if(view === 'log' || view === 'settings') render(); });
+}
 
 /* ---------- Meals: Canadian fast food ---------- */
 const FAST_DB = [
@@ -1417,6 +1468,19 @@ function vSettings(){
   return acc('targets', 'Targets', `${st.kcal} kcal · ${st.pPct}/${st.cPct}/${st.fPct}`, targets)
        + acc('meals', 'Meals', `${st.meals.length} per day: ${mealNames}`, meals)
        + acc('money', 'Money & stores', `${st.primary} · ${st.stores.length} stores`, money_)
+       + acc('fit', 'Fitbit', st.gclient ? (st.gok ? 'Connected' : 'Client ID saved') : 'Not set up', `<div class="mut">Reads your steps and calories burned from the Google Health API (the new home of the Fitbit API) so the Log can show your deficit.</div>
+          <label class="f" style="margin-top:12px">Google OAuth client ID<input data-k="gclient" data-str="1" value="${esc(st.gclient || '')}" placeholder="1234-abc.apps.googleusercontent.com" autocapitalize="off" autocorrect="off"></label>
+          <div class="row" style="margin-top:12px">${st.gclient ? '<button class="b" data-act="fitsync">Connect and sync today</button>' : ''}</div>
+          ${fitMsg ? `<div class="mut" style="margin-top:8px">${esc(fitMsg)}</div>` : ''}
+          <details style="margin-top:14px"><summary>How to get a client ID (about 10 minutes, once)</summary>
+           <ol class="mut" style="padding-left:20px;line-height:1.55">
+            <li>Open the Google Health app on your phone, sign in with Google and sync your Fitbit once.</li>
+            <li>In the Google Cloud console, create a project, then enable <b>Google Health API</b> under APIs and Services, Library.</li>
+            <li>Set up the Google Auth Platform consent screen as <b>External</b>, and add your own Google account under Test users.</li>
+            <li>Under Data Access, add the scope <b>googlehealth.activity_and_fitness.readonly</b>.</li>
+            <li>Credentials, Create credentials, OAuth client ID, type <b>Web application</b>. Under Authorized JavaScript origins add <b>${esc(location.origin)}</b>.</li>
+            <li>Paste the client ID above. No secret is needed.</li></ol>
+           <div class="mut">Google caps unverified apps at 100 users, which is plenty for personal use. Sign-in lasts about an hour, so tap Sync when you open the Log.</div></details>`)
        + acc('sheet', 'Google Sheet', st.sheetUrl ? 'Connected' : 'Not connected', sheet);
 }
 
@@ -2078,8 +2142,9 @@ document.addEventListener('click', async e => {
     case 'sm_save': saveMealGo(); break;
     case 'showrecipe': showRecipe(el.dataset.id); break;
     case 'copynote': try{ await navigator.clipboard.writeText((comboById(el.dataset.id) || {}).note || ''); toast('Copied'); }catch(err){ toast('Select and copy the text'); } break;
+    case 'fitsync': fitSync(); break;
     case 'lgday': logDate = addDays(logDate || today(), +el.dataset.v); render(); break;
-    case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); save(); render(); break; }
+    case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); L.burn = 0; save(); render(); break; }
     case 'lgdel': { const L = logMeal(logDate || today(), el.dataset.m); L.entries.splice(+el.dataset.i, 1); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgskip': { logMeal(logDate || today(), el.dataset.m).skipped = true; save(); render(); break; }
     case 'lgplan': { const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names, k:pm.tot.k, p:pm.tot.p, c:pm.tot.c, f:pm.tot.f, src:'plan'}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
