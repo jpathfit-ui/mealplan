@@ -216,6 +216,45 @@ main>.seg{margin:14px 0 4px}
 .eo .row{justify-content:space-between;flex-wrap:nowrap}
 .eo select{padding:7px 8px;border-radius:10px}
 .subh{font:600 13px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:18px 0 6px}
+
+.daycard .dayh{display:flex;align-items:center;gap:10px;width:100%;margin:-18px -16px 0;padding:14px 16px;width:calc(100% + 32px);border:0;background:var(--acc2);border-radius:21px;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.daycard.open .dayh{border-radius:21px 21px 0 0;margin-bottom:6px}
+.daycard .dh-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.daycard .dh-t b{font:600 19px var(--serif);color:var(--acc)}
+.daycard .dh-t small{color:var(--mut);font-size:12px}
+.daycard.open .chev{transform:rotate(180deg)}
+.bn{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top));z-index:60;max-width:520px;margin:0 auto;display:flex;gap:12px;align-items:center;background:var(--acc);color:var(--accink);border-radius:20px;padding:14px 14px 14px 16px;box-shadow:0 18px 40px -12px rgba(0,0,0,.55);animation:bnin .35s ease-out}
+@keyframes bnin{from{transform:translateY(-130%);opacity:0}to{transform:none;opacity:1}}
+.bn-i{flex:none;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:700}
+.bn-m{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.bn-m b{font:600 18px var(--serif)}.bn-m span{font-size:14px}.bn-m small{font-size:12px;opacity:.85;margin-top:3px}
+.bn-a{display:flex;align-items:center;gap:4px;flex:none}
+.bn-a button{border:0;font:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:99px;padding:9px 14px;background:var(--accink);color:var(--acc)}
+.bn-a .bn-x{background:none;color:var(--accink);font-size:24px;padding:4px 8px;line-height:1}
+/* log */
+.lg-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 4px}
+.lg-nav b{font:600 19px var(--serif);color:var(--acc)}
+.lg-nav .ibtn{width:42px;height:42px}
+.lg-big{display:flex;align-items:baseline;gap:8px}
+.lg-big b{font:600 44px var(--serif);font-variant-numeric:tabular-nums;line-height:1}
+.lg-big.over b{color:var(--bad)}
+.lg-bar{height:10px;border-radius:99px;background:var(--acc2);overflow:hidden;margin:10px 0 4px}
+.lg-bar i{display:block;height:100%;border-radius:99px;background:var(--acc)}
+.lg-bar.over i{background:var(--bad)}
+.lg-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.lg-trio div{display:flex;flex-direction:column;font-size:12px;color:var(--mut)}
+.lg-trio b{font:600 21px var(--serif);color:var(--ink);font-variant-numeric:tabular-nums}
+.lgm{border-top:1px solid var(--line);padding:14px 0 12px}
+.lgm:first-of-type{border-top:0;padding-top:4px}
+.lgm-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lgm-h b{font:600 18px var(--serif)}
+.lgm-p{font-size:13px;color:var(--mut);margin:2px 0 6px}
+.lge{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;font-size:15px}
+.lge small{color:var(--mut);display:block;font-size:12px}
+.lge .x{font-size:20px}
+.done-t{color:var(--acc)}
+.fit{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--acc2);color:var(--acc);margin-left:6px}
+.fit.over{background:var(--warnbg);color:var(--warn)}
 </style>
 </head>
 <body>
@@ -224,6 +263,7 @@ main>.seg{margin:14px 0 4px}
 <nav><div id="nav"></div></nav>
 <div id="modal"></div>
 <div id="toast"></div>
+<div id="banner"></div>
 
 <script>
 /* ---------- helpers ---------- */
@@ -234,7 +274,11 @@ const pick = a => a[rnd(a.length)];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => (n < 0 ? '-$' : '$') + Math.abs(n).toFixed(2);
 const fg = g => g >= 1000 ? (g/1000).toFixed(2).replace(/\.?0+$/,'') + ' kg' : Math.round(g) + ' g';
-const today = () => new Date().toISOString().slice(0, 10);
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const today = () => ymd(new Date());
+const addDays = (str, n) => { const d = new Date(str + 'T12:00:00'); d.setDate(d.getDate() + n); return ymd(d); };
+const dayDiff = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5);
+const dayLabel = str => new Date(str + 'T12:00:00').toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'});
 const KEY = 'mealcart_v1';
 
 /* ---------- starter data (approximate nutrition per 100 g, price per kg in CAD) ---------- */
@@ -485,7 +529,7 @@ function loadState(){
   return d;
 }
 let S = loadState();
-let view = 'plan', storeSel = null, foodQ = '', foodTab = 'foods', foodMeal = 'all';
+let planOpen = null, view = 'plan', storeSel = null, foodQ = '', foodTab = 'foods', foodMeal = 'all';
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 const foodById = id => S.foods.find(f => f.id === id);
 
@@ -728,7 +772,7 @@ function generate(){
   const freeNames = [...new Set(days.flat().filter(m => m.free).map(m => m.name))];
   generate.note = freeNames.length ? `No combo fits ${freeNames.join(', ')} with your ticked foods, so it used a free mix. Tick more foods or add a combo.` : '';
   S.plan = {created: today(), days:st.days, rotate:R, list:days, snap:{kcal:st.kcal,pPct:st.pPct,cPct:st.cPct,fPct:st.fPct}};
-  S.done = {};
+  S.done = {}; planOpen = null;
   const row = planRow();
   S.history.push(row);
   save(); postSheet('plan', row);
@@ -838,6 +882,12 @@ function mealPrompt(m, o={}){
 }
 
 /* ---------- UI ---------- */
+function closeBanner(){ const b = $('#banner'); if(b) b.innerHTML = ''; clearTimeout(banner.t); }
+function banner(note){
+  const L = groceryLines(), P = S.plan;
+  $('#banner').innerHTML = `<div class="bn" role="status"><div class="bn-i">✓</div><div class="bn-m"><b>Plan generated</b><span>Shopping list updated: ${money(L.total)} for ${P.days} day${P.days === 1 ? '' : 's'}</span>${note ? `<small>${esc(note)}</small>` : ''}</div><div class="bn-a"><button data-act="bnlist">View list</button><button class="bn-x" data-act="bnclose" aria-label="Dismiss">×</button></div></div>`;
+  clearTimeout(banner.t); banner.t = setTimeout(closeBanner, 9000);
+}
 function toast(t){
   const el = $('#toast'); el.innerHTML = `<div class="toast">${esc(t)}</div>`;
   clearTimeout(toast.t); toast.t = setTimeout(() => el.innerHTML = '', 2600);
@@ -845,15 +895,16 @@ function toast(t){
 function setView(v){ view = v; render(); window.scrollTo(0,0); }
 const ICONS = {
  plan:'<path d="M4 5.5C6.5 4.5 9.5 4.5 12 6c2.5-1.5 5.5-1.5 8-.5V19c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5z"/><path d="M12 6v13.5"/>',
+ log:'<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5h6M8.5 13l2.5 2.5 4.5-5"/>',
  list:'<path d="M3 9h18l-1.8 9.2a2 2 0 0 1-2 1.6H6.8a2 2 0 0 1-2-1.6z"/><path d="M8 9l3-5M16 9l-3-5"/>',
  foods:'<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z"/><path d="M5 19c3-4 6-7 10-9"/>',
  settings:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'
 };
 function render(){
-  const tabs = [['plan','Plan'],['list','List'],['foods','Foods'],['settings','Settings']];
+  const tabs = [['plan','Plan'],['log','Log'],['list','List'],['foods','Foods'],['settings','Settings']];
   $('#nav').innerHTML = tabs.map(t => `<button class="${view===t[0]?'on':''}" data-act="view" data-v="${t[0]}" aria-label="${t[1]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t[0]]}</svg>${t[1]}</button>`).join('');
   $('#sub').textContent = S.foods.filter(f=>f.on).length + ' foods ticked';
-  $('#app').innerHTML = ({plan:vPlan, list:vList, foods:vFoods, settings:vSettings})[view]();
+  $('#app').innerHTML = ({plan:vPlan, log:vLog, list:vList, foods:vFoods, settings:vSettings})[view]();
 }
 function ringSVG(k, target){
   const r = 46, C = 2*Math.PI*r, pct = Math.max(0, Math.min(1, target ? k/target : 0));
@@ -870,9 +921,9 @@ function vPlan(){
    <div class="grid">
     <label class="f">Calories / day<input type="number" inputmode="numeric" data-k="kcal" value="${st.kcal}"></label>
     <label class="f">Days to plan<input type="number" inputmode="numeric" data-k="days" value="${st.days}"></label>
-    <label class="f">Different days<input type="number" inputmode="numeric" data-k="rotate" value="${st.rotate}"></label>
+    <label class="f">Unique menus<input type="number" inputmode="numeric" data-k="rotate" value="${st.rotate}"></label>
    </div>
-   <div class="mut" style="margin:10px 0 14px">Different days: 1 = same meals every day (meal prep). ${st.meals.length} meal${st.meals.length===1?'':'s'}/day, ${st.pPct}/${st.cPct}/${st.fPct} P/C/F. Change in Settings.</div>
+   <div class="mut" style="margin:10px 0 14px">Days to plan = how many days the plan and shopping list cover. Unique menus = how many different daily menus rotate across them (1 = same meals every day, 3 = three menus on repeat). ${st.meals.length} meal${st.meals.length===1?'':'s'}/day, ${st.pPct}/${st.cPct}/${st.fPct} P/C/F. Change in Settings.</div>
    <button class="b big" data-act="gen">Generate plan</button></div>`;
   if(!S.plan) return h + `<div class="card mut">Tick the foods you will buy in <b>Foods</b>, then generate. Meals come back as ingredient amounts, and the <b>List</b> tab totals what to buy.</div>`;
   const P = S.plan, a = planAvg(), cnt = dayCounts();
@@ -882,14 +933,17 @@ function vPlan(){
   h += warnings().map(w => `<div class="warn">${esc(w)}</div>`).join('');
   h += `<div class="card panel"><div class="ringrow">${ringSVG(a.k, st.kcal)}<div class="macros">
     ${macroBar('Protein', a.p, tp, 'var(--acc)')}${macroBar('Carbs', a.c, tc, 'var(--ochre)')}${macroBar('Fat', a.f, tf, 'var(--terra)')}</div></div>
-    <div class="sumline"><span>${P.days}-day plan${P.rotate>1?`, ${P.rotate} different days`:P.days>1?', same meals daily':''}</span><span>Est. total <b>${money(L.total)}</b></span></div></div>`;
-  P.list.forEach((d,di) => {
-    const t = dayTot(d), ok = t.k >= lo && t.k <= hi;
-    const reps = cnt[di];
-    const label = P.rotate>1 ? `Day ${di+1}` : 'Every day';
-    h += `<div class="card"><div class="dayh"><h2>${label} <span class="mut" style="font-family:system-ui;font-weight:400">${P.rotate>1?`eaten ${reps}×`:`${P.days} days`}</span></h2><span class="tag ${ok?'':'w'}">${Math.round(t.k)} kcal</span></div>
-    <div class="nums" style="margin:0 0 4px">P ${Math.round(t.p)} g · C ${Math.round(t.c)} g · F ${Math.round(t.f)} g</div>`;
-    d.forEach((m,mi) => {
+    <div class="sumline"><span>${P.days}-day plan${P.rotate>1?`, ${P.rotate} rotating menus`:P.days>1?', same meals daily':''}</span><span>Est. total <b>${money(L.total)}</b></span></div></div>`;
+  const startIdx = Math.max(0, Math.min(P.days - 1, dayDiff(P.created, today())));
+  if(planOpen === null) planOpen = {[startIdx]: true};
+  for(let n = 0; n < P.days; n++){
+    const di = n % P.rotate, d = P.list[di];
+    const t = dayTot(d), ok = t.k >= lo && t.k <= hi, open = !!planOpen[n], date = addDays(P.created, n);
+    const same = n >= P.rotate ? `same menu as Day ${di+1}` : '';
+    h += `<div class="card daycard ${open ? 'open' : ''}"><button class="dayh" data-act="pday" data-n="${n}" aria-expanded="${open}"><span class="dh-t"><b>Day ${n+1}</b><small>${dayLabel(date)}${n === startIdx && date === today() ? ' · today' : ''}${same ? ' · ' + same : ''}</small></span><span class="tag ${ok?'':'w'}">${Math.round(t.k)} kcal</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`;
+    if(open){
+      h += `<div class="nums" style="margin:10px 0 4px">P ${Math.round(t.p)} g · C ${Math.round(t.c)} g · F ${Math.round(t.f)} g</div>`;
+      d.forEach((m,mi) => {
             h += `<div class="meal ${mi===0?'first':''}"><div class="nm"><span class="mn">${esc(m.name)}</span><span class="mk">${Math.round(m.tot.k)}<small> kcal</small></span></div>
        <div class="mt">${m.cname?`<b>${esc(m.cname)}</b> · `:''}${m.type==='snack'?'Snack':m.type==='big'?'Big meal':'Light meal'}${m.want&&m.want!=='any'?' · '+(m.want==='hot'?'Hot':'Cold'):''}</div>
        ${m.fast ? `<div class="ing"><span>${esc(m.fast.name)}${m.fast.q !== 1 ? ' ×' + m.fast.q : ''}</span><b>${m.fast.price ? money(m.fast.price) : 'eat out'}</b></div>` : ''}
@@ -897,9 +951,10 @@ function vPlan(){
        ${(m.add||[]).map(it => `<div class="ing add"><span>${esc(foodById(it.id)?.name||'?')} <small>add-on</small></span><b>${it.g} g</b></div>`).join('')}
        <div class="nums">P ${Math.round(m.tot.p)} · C ${Math.round(m.tot.c)} · F ${Math.round(m.tot.f)}</div>
        <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="eatout" data-d="${di}" data-m="${mi}">Eat out</button>${m.fast ? '' : `<button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">Find a recipe</button><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button>`}</div>`;
-    });
+      });
+    }
     h += `</div>`;
-  });
+  }
   return h;
 }
 
@@ -1046,6 +1101,97 @@ function foodShown(f){
 }
 const seg = (items, cur, act, cls) => `<div class="seg ${cls||''}">${items.map(([k,l]) => `<button class="${cur===k?'on':''}" data-act="${act}" data-v="${k}">${l}</button>`).join('')}</div>`;
 const CAM = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+
+/* ---------- Log: what you actually ate ---------- */
+let logDate = null, lo = {mi:0, chain:null, budget:0, mealId:null};
+function logEnsure(date){
+  if(!S.log2) S.log2 = {};
+  if(!S.log2[date]) S.log2[date] = {meals:{}, steps:0, active:0};
+  return S.log2[date];
+}
+function logMeal(date, mid){ const L = logEnsure(date); if(!L.meals[mid]) L.meals[mid] = {entries:[], skipped:false}; return L.meals[mid]; }
+function logTotals(date){
+  const L = (S.log2 || {})[date], t = {k:0, p:0, c:0, f:0};
+  if(L) Object.values(L.meals).forEach(m => m.entries.forEach(e => { t.k += e.k; t.p += e.p; t.c += e.c; t.f += e.f; }));
+  return t;
+}
+function menuFor(date){
+  const P = S.plan; if(!P) return null;
+  const n = dayDiff(P.created, date); if(n < 0) return null;
+  return {day: P.list[n % P.rotate], n, past: n >= P.days};
+}
+function plannedK(menu, i){ const st = S.settings; return menu && menu.day[i] ? menu.day[i].tot.k : targets()[i].k; }
+function logAdd(date, mid, e){ logMeal(date, mid).entries.push({name:e.name, k:Math.round(e.k), p:Math.round(e.p*10)/10, c:Math.round(e.c*10)/10, f:Math.round(e.f*10)/10, src:e.src || 'manual'}); logMeal(date, mid).skipped = false; save(); }
+function vLog(){
+  const st = S.settings, date = logDate || (logDate = today()), L = logEnsure(date), menu = menuFor(date), tot = logTotals(date);
+  const tgt = st.kcal, left = tgt - tot.k, over = left < 0;
+  const burned = (st.baseBurn || 0) + (L.active || 0), defi = burned - tot.k;
+  const tp = tgt*st.pPct/100/4, tc = tgt*st.cPct/100/4, tf = tgt*st.fPct/100/9;
+  let h = `<div class="lg-nav"><button class="ibtn" data-act="lgday" data-v="-1" aria-label="Previous day">‹</button><b>${date === today() ? 'Today' : dayLabel(date)}${date === today() ? ' · ' + dayLabel(date) : ''}</b><button class="ibtn" data-act="lgday" data-v="1" aria-label="Next day">›</button></div>`;
+  h += `<div class="card panel"><div class="lg-big ${over ? 'over' : ''}"><b>${Math.abs(Math.round(left))}</b><span class="mut">kcal ${over ? 'over target' : 'left today'}</span></div>
+   <div class="lg-bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, Math.max(0, tot.k / tgt * 100)).toFixed(0)}%"></i></div>
+   <div class="mut">${Math.round(tot.k)} eaten of ${tgt} kcal target</div>
+   <div style="margin-top:10px">${macroBar('Protein', tot.p, tp, 'var(--acc)')}${macroBar('Carbs', tot.c, tc, 'var(--ochre)')}${macroBar('Fat', tot.f, tf, 'var(--terra)')}</div>
+   ${st.baseBurn > 0 ? `<div class="lg-trio"><div><b>${Math.round(tot.k)}</b>eaten</div><div><b>${Math.round(burned)}</b>burned</div><div><b class="${defi >= 0 ? 'ok' : 'bad'}">${Math.round(Math.abs(defi))}</b>${defi >= 0 ? 'deficit' : 'surplus'}</div></div>` : `<div class="mut" style="margin-top:12px">Set your daily baseline burn in Settings → Targets to see your deficit.</div>`}</div>`;
+  h += `<div class="card"><h2>Activity</h2><div class="grid2">
+    <label class="f">Steps<input type="number" inputmode="numeric" data-act="lg_steps" value="${L.steps || ''}" placeholder="0"></label>
+    <label class="f">Active calories burned<input type="number" inputmode="numeric" data-act="lg_active" value="${L.active || ''}" placeholder="0"></label></div>
+    <div class="row" style="margin-top:10px"><button class="g" data-act="lg_est">Estimate from steps</button></div>
+    <div class="mut" style="margin-top:8px">Active calories are on top of your baseline burn. Steps give a rough estimate of about 0.04 kcal each.</div></div>`;
+  h += `<div class="card"><h2>Meals</h2>`;
+  if(!menu) h += `<div class="mut" style="margin-bottom:8px">${S.plan ? 'No plan covers this date, so log what you ate below.' : 'Generate a plan to see planned meals here. You can still log what you eat.'}</div>`;
+  else if(menu.past) h += `<div class="mut" style="margin-bottom:8px">Your plan covered ${S.plan.days} days. Showing the same rotation.</div>`;
+  st.meals.forEach((sl, i) => {
+    const pm = menu && menu.day[i], lm = (L.meals[sl.id] || {entries:[], skipped:false}), lk = lm.entries.reduce((a, e) => a + e.k, 0);
+    const names = pm ? (pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', ')) : '';
+    h += `<div class="lgm"><div class="lgm-h"><b>${esc(sl.name)}</b><span class="mut">${lm.entries.length ? `<span class="done-t"><b>${Math.round(lk)}</b></span> / ` : ''}${Math.round(plannedK(menu, i))} kcal</span></div>
+     ${pm ? `<div class="lgm-p">${pm.cname ? esc(pm.cname) + ': ' : ''}${esc(names)}</div>` : ''}
+     ${lm.skipped ? '<div class="mut">Skipped</div>' : ''}
+     ${lm.entries.map((e, j) => `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small></span><button class="x" data-act="lgdel" data-m="${sl.id}" data-i="${j}" aria-label="Remove">×</button></div>`).join('')}
+     <div class="btns">${pm && !lm.entries.length ? `<button class="s" data-act="lgplan" data-mi="${i}">Ate as planned</button>` : ''}<button class="s" data-act="lgout" data-mi="${i}">Eat out</button><button class="s" data-act="lgcustom" data-m="${sl.id}">Add item</button>${lm.entries.length || lm.skipped ? '' : `<button class="g" data-act="lgskip" data-m="${sl.id}">Skip</button>`}</div></div>`;
+  });
+  const ex = (L.meals.extra || {entries:[]}).entries;
+  h += `<div class="lgm"><div class="lgm-h"><b>Other / snacks</b></div>${ex.map((e, j) => `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small></span><button class="x" data-act="lgdel" data-m="extra" data-i="${j}" aria-label="Remove">×</button></div>`).join('')}
+    <div class="btns"><button class="s" data-act="lgcustom" data-m="extra">Add item</button><button class="s" data-act="lgout" data-mi="-1">Eat out</button></div></div></div>`;
+  return h;
+}
+function lgCustomModal(mid){
+  const n = (id, lab) => `<label class="f">${lab}<input id="${id}" type="number" inputmode="decimal" placeholder="0"></label>`;
+  openModal(`<h3>Add item</h3><label class="f">What did you have<input id="lc_name" placeholder="e.g. Granola bar"></label>
+   <div class="grid" style="margin-top:10px">${n('lc_k','kcal')}${n('lc_p','Protein g')}${n('lc_c','Carbs g')}</div><div class="grid" style="margin-top:10px">${n('lc_f','Fat g')}</div>
+   <div class="row" style="margin-top:16px"><button class="b" data-act="lgcustomgo" data-m="${mid}">Add</button><button class="g" data-act="mclose2">Cancel</button></div>`);
+}
+/* eat out from the log: all options for a chain, lined up against what this meal can take */
+function loBudgets(){
+  const st = S.settings, date = logDate || today(), menu = menuFor(date), tot = logTotals(date), L = logEnsure(date);
+  const remaining = st.kcal - tot.k;
+  let later = 0; if(lo.mi >= 0) st.meals.forEach((sl, j) => { if(j > lo.mi && !(L.meals[sl.id] && (L.meals[sl.id].entries.length || L.meals[sl.id].skipped))) later += plannedK(menu, j); });
+  return {target: lo.mi >= 0 ? plannedK(menu, lo.mi) : 0, remaining, later, room: Math.max(0, remaining - later)};
+}
+function loList(){
+  const its = fastItems(lo.chain), bud = lo.budget;
+  const rows = its.map(it => { let q = Math.max(0.5, Math.min(2, Math.floor(bud / it.k * 2) / 2)); if(it.k * 0.5 > bud) q = 0.5; return {it, q, d: it.k * q - bud}; });
+  rows.sort((a, b) => { const fa = a.d <= 0, fb = b.d <= 0; if(fa !== fb) return fa ? -1 : 1; return fa ? b.d - a.d : a.d - b.d; });
+  return rows.map(({it, q, d}, i) => `<div class="eo"><div style="margin-bottom:6px"><b>${esc(it.name)}</b><span class="fit ${d > 5 ? 'over' : ''}">${d > 5 ? 'over by ' + Math.round(d) : 'fits'}</span><div class="mut">${fastMacros(it)} per serving</div></div>
+    <div class="row"><select id="lq_${i}" aria-label="Servings">${[0.5,1,1.5,2,3].map(v => `<option ${v === q ? 'selected' : ''}>${v}</option>`).join('')}</select><button class="s" data-act="logoutgo" data-id="${it.id}" data-qi="${i}">Log it</button></div></div>`).join('');
+}
+function logOutModal(){
+  const F = fastEnsure(), b = loBudgets(), sl = lo.mi >= 0 ? S.settings.meals[lo.mi] : null;
+  const chains = [...FAST_DB.map(c => [c[0], c[1]])]; if(fastItems('custom').length) chains.push(['custom', 'My items']);
+  chains.sort((a, z) => (F.chains[z[0]] ? 1 : 0) - (F.chains[a[0]] ? 1 : 0));
+  if(!lo.chain) lo.chain = chains[0][0];
+  openModal(`<h3>Eat out${sl ? ': ' + esc(sl.name) : ''}</h3>
+   <div class="mut" style="margin-bottom:8px">${sl ? `This meal is planned at ${Math.round(b.target)} kcal. ` : ''}You have ${Math.round(b.remaining)} kcal left today${sl && b.later > 0 ? `, and ${Math.round(b.later)} kcal is set aside for your later meals, so there is room for ${Math.round(b.room)} here` : ''}.</div>
+   <label class="f">Calories for this meal<input id="lo_budget" type="number" inputmode="numeric" value="${Math.round(lo.budget)}"></label>
+   <div class="chips" style="margin-top:6px">${sl ? `<button class="chip sm" data-act="lobud" data-v="${Math.round(b.target)}">Planned ${Math.round(b.target)}</button>` : ''}${sl ? `<button class="chip sm" data-act="lobud" data-v="${Math.round(b.room)}">Room today ${Math.round(b.room)}</button>` : ''}<button class="chip sm" data-act="lobud" data-v="${Math.max(0, Math.round(b.remaining))}">All remaining ${Math.max(0, Math.round(b.remaining))}</button></div>
+   <div class="subh">Where</div>
+   <div class="chips">${chains.map(c => `<button class="chip sm ${lo.chain === c[0] ? 'on' : ''}" data-act="lochain" data-c="${c[0]}">${esc(c[1])}</button>`).join('')}</div>
+   <div class="subh">Options, closest to your calories first</div><div id="lo_list">${loList()}</div>
+   <div class="row" style="margin-top:12px"><button class="g" data-act="mclose2">Close</button></div>`);
+}
+document.addEventListener('input', e => {
+  if(e.target && e.target.id === 'lo_budget'){ lo.budget = parseFloat(e.target.value) || 0; const l = $('#lo_list'); if(l) l.innerHTML = loList(); }
+});
 
 /* ---------- Meals: Canadian fast food ---------- */
 const FAST_DB = [
@@ -1216,6 +1362,7 @@ function vSettings(){
    <label class="f">Calories<input type="number" data-k="kcal" value="${st.kcal}"></label>
    <label class="f">Day variance %<input type="number" data-k="dayVar" value="${st.dayVar}"></label>
    <label class="f">Meal variance %<input type="number" data-k="mealVar" value="${st.mealVar}"></label></div>
+   <label class="f" style="margin-top:14px">Daily baseline burn (kcal, resting plus normal movement)<input type="number" inputmode="numeric" data-k="baseBurn" value="${st.baseBurn || ''}" placeholder="e.g. 2400"></label>
    <div class="mut" style="margin:14px 0 6px">Macros: edit the percent or the grams and the other follows your calorie target.</div>
    <div class="grid">${macroField('Protein','pPct',4)}${macroField('Carbs','cPct',4)}${macroField('Fat','fPct',9)}</div>
    ${Math.abs(sum-100) > 0.05 ? `<div class="warn">Macros add to ${sum}%. They should total 100.${rem >= 0 ? ` <button class="s" style="margin-left:6px" data-act="fixfat">Set fat to ${rem}%</button>` : ''}</div>` : `<div class="mut" style="margin-top:8px">Total 100%</div>`}
@@ -1897,7 +2044,10 @@ document.addEventListener('click', async e => {
   if(el.tagName === 'INPUT' || el.tagName === 'SELECT') { if(el.type !== 'checkbox') return; }
   switch(a){
     case 'view': setView(el.dataset.v); break;
-    case 'gen': if(generate()){ render(); toast(generate.note || 'Plan ready'); } break;
+    case 'pday': { const n = el.dataset.n; planOpen[n] = !planOpen[n]; const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'gen': if(generate()){ render(); window.scrollTo(0, 0); banner(generate.note); } break;
+    case 'bnlist': closeBanner(); setView('list'); break;
+    case 'bnclose': closeBanner(); break;
     case 'rmstore': removeStore(el.dataset.s); break;
     case 'addother': addStore($('#store_other').value); break;
     case 'homeloc': useMyLocation(); break;
@@ -1928,6 +2078,17 @@ document.addEventListener('click', async e => {
     case 'sm_save': saveMealGo(); break;
     case 'showrecipe': showRecipe(el.dataset.id); break;
     case 'copynote': try{ await navigator.clipboard.writeText((comboById(el.dataset.id) || {}).note || ''); toast('Copied'); }catch(err){ toast('Select and copy the text'); } break;
+    case 'lgday': logDate = addDays(logDate || today(), +el.dataset.v); render(); break;
+    case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); save(); render(); break; }
+    case 'lgdel': { const L = logMeal(logDate || today(), el.dataset.m); L.entries.splice(+el.dataset.i, 1); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'lgskip': { logMeal(logDate || today(), el.dataset.m).skipped = true; save(); render(); break; }
+    case 'lgplan': { const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names, k:pm.tot.k, p:pm.tot.p, c:pm.tot.c, f:pm.tot.f, src:'plan'}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'lgcustom': lgCustomModal(el.dataset.m); break;
+    case 'lgcustomgo': { const v = id => parseFloat($('#' + id).value) || 0, name = $('#lc_name').value.trim() || 'Item'; if(!v('lc_k')){ toast('Add the calories'); break; } logAdd(logDate || today(), el.dataset.m, {name, k:v('lc_k'), p:v('lc_p'), c:v('lc_c'), f:v('lc_f')}); closeModal(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'lgout': { lo.mi = +el.dataset.mi; lo.mealId = lo.mi >= 0 ? S.settings.meals[lo.mi].id : 'extra'; const b = loBudgets(); lo.budget = lo.mi >= 0 ? Math.round(b.target) : Math.max(0, Math.round(b.remaining)); lo.chain = null; logOutModal(); break; }
+    case 'lochain': lo.chain = el.dataset.c; logOutModal(); break;
+    case 'lobud': { lo.budget = +el.dataset.v; const i = $('#lo_budget'); if(i) i.value = lo.budget; const l = $('#lo_list'); if(l) l.innerHTML = loList(); break; }
+    case 'logoutgo': { const it = fastById(el.dataset.id), q = parseFloat($('#lq_' + el.dataset.qi).value) || 1; if(it){ logAdd(logDate || today(), lo.mealId, {name: chainName(it.chain) + ': ' + it.name + (q !== 1 ? ' ×' + q : ''), k:it.k*q, p:it.p*q, c:it.c*q, f:it.f*q, src:'out'}); } closeModal(); const y = window.scrollY; render(); window.scrollTo(0, y); toast('Logged'); break; }
     case 'ftab': foodTab = el.dataset.v; foodMeal = 'all'; foodQ = ''; openGrp = {}; render(); break;
     case 'fchain': { const F = fastEnsure(); F.chains[el.dataset.c] = !F.chains[el.dataset.c]; if(F.chains[el.dataset.c]) openGrp['fc_' + el.dataset.c] = true; save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'fstar': { const F = fastEnsure(), i = F.favs.indexOf(el.dataset.id); if(i < 0) F.favs.push(el.dataset.id); else F.favs.splice(i, 1); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
@@ -2010,6 +2171,8 @@ document.addEventListener('change', e => {
     save(); if(view==='settings') render(); return;
   }
   const a = el.dataset.act;
+  if(a === 'lg_steps'){ logEnsure(logDate || today()).steps = Math.max(0, parseFloat(el.value) || 0); save(); return; }
+  if(a === 'lg_active'){ logEnsure(logDate || today()).active = Math.max(0, parseFloat(el.value) || 0); save(); render(); return; }
   if(a === 'scanfile'){ scanPhoto(el.files && el.files[0]); return; }
   if(a === 'mname'){ st.meals[+el.dataset.i].name = el.value; save(); }
   if(a === 'mtype'){ st.meals[+el.dataset.i].type = el.value; save(); }
