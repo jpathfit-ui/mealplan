@@ -370,6 +370,13 @@ main{padding-bottom:190px}
 .pnotes p{margin:4px 0 6px;padding-left:2px}
 .portion{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:var(--mut)}
 .portion select{font:inherit;font-size:13px;padding:3px 6px;border-radius:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink)}
+
+/* v26: drinks */
+.drk{border-top:1px solid var(--line);padding:10px 0}.drk:first-child{border-top:0}
+.drk .dr{display:flex;align-items:center;gap:12px}
+.drk .dr input[type=checkbox]{width:22px;height:22px;flex:none}
+.drk .nm{flex:1;min-width:0;font-weight:600}.drk .nm small{display:block;font-weight:400;color:var(--mut);font-size:12px;margin-top:2px}
+.drp{margin:10px 0 2px 34px}
 </style>
 </head>
 <body>
@@ -384,7 +391,7 @@ main{padding-bottom:190px}
 <script>
 /* ---------- helpers ---------- */
 const $ = (s, r=document) => r.querySelector(s);
-const BUILD = '2026-11-22.7';
+const BUILD = '2026-11-22.8';
 const uid = () => Math.random().toString(36).slice(2, 9);
 const rnd = n => Math.floor(Math.random() * n);
 const pick = a => a[rnd(a.length)];
@@ -550,6 +557,20 @@ const plural = w => /s$/.test(w) ? w : w.replace(/y$/, 'ie') + (/y$/.test(w) ? '
 function unitFor(name){ const u = UNIT_DEFAULTS[name]; return u ? {mode:'units', unit:{g:u[0], label:u[1], plural:plural(u[1]), min:u[2], max:u[3]}} : {mode:'flex'}; }
 const mkFood = r => ({id: uid(), ...unitFor(r[0]), ...(r[9] || {}), name:r[0], cat:r[1], k:r[2], p:r[3], c:r[4], f:r[5], price:r[6], maxg:r[7]||null, avg:null, n:0, sp:{}, on: DEFAULT_ON.includes(r[0]), kinds: r[8] || KINDS[r[0]] || null, use:null});
 const SEED_V = 3;
+// name, kcal/P/C/F per 100 ml, serving ml, serving label, $ per litre, on
+const DRINK_SEEDS = [
+ ['Water',0,0,0,0,250,'glass',0],
+ ['Latte (2% milk)',45,2.4,3.7,2.1,250,'cup',6],
+ ['Orange juice',45,0.7,10.4,0.2,250,'glass',3],
+ ['Almond milk, unsweetened',15,0.6,0.3,1.2,250,'cup',3],
+ ['Protein shake (ready to drink)',50,8,2,1.2,330,'bottle',8],
+ ['Protein coffee (example)',48,8,2,0.8,250,'cup',8],
+ ['Hot chocolate',77,3.2,11.6,2.5,250,'cup',5],
+ ['Sports drink',26,0,6.4,0,500,'bottle',3],
+ ['Cola',42,0,10.6,0,355,'can',3],
+ ['Diet cola',0,0,0,0,355,'can',3]
+];
+const mkDrink = r => ({id:uid(), name:r[0], cat:'drink', drink:true, mode:'units', unit:{g:r[5], label:r[6], plural:plural(r[6]), min:1, max:3}, k:r[1], p:r[2], c:r[3], f:r[4], price:r[7], maxg:null, avg:null, n:0, sp:{}, on:false, kinds:null, use:null, perDay:0});
 
 /* ---------- combos (associations): foods that belong together in a meal ---------- */
 // name, meal kinds (b/m/s), served, slots. A slot is 'any|of|these' foods; a leading ? makes the slot optional.
@@ -612,7 +633,7 @@ function seedCombos(foods, only){
 }
 
 function defaultState(){
-  const foods = STARTER.map(mkFood);
+  const foods = STARTER.map(mkFood).concat(DRINK_SEEDS.map(mkDrink));
   return {
     settings:{
       kcal:2000, pPct:30, cPct:40, fPct:30, dayVar:10, mealVar:20, ceiling:true,
@@ -620,7 +641,7 @@ function defaultState(){
       days:7, rotate:1, temp:'any', method:'Any', time:'Any', budget:0,
       stores:['No Frills','Walmart','Metro','Costco'], primary:'No Frills', trip:5, pick:'best', perKm:0.65, home:{text:'',lat:null,lon:null}, storeInfo:{}, sheetUrl:'', gkey:'', assoc:'strict'
     },
-    foods, combos: seedCombos(foods), plan:null, history:[], log:[], done:{}, seedV:SEED_V
+    foods, drinksSeeded:true, combos: seedCombos(foods), plan:null, history:[], log:[], done:{}, seedV:SEED_V
   };
 }
 function loadState(){
@@ -638,6 +659,8 @@ function loadState(){
         out.foods.forEach(f => { if(f.mode === undefined) Object.assign(f, unitFor(f.name)); });
         out.seedV = SEED_V;
       }
+      if(!o.drinksSeeded){ const have = new Set(out.foods.map(f => f.name.toLowerCase())); DRINK_SEEDS.forEach(r => { if(!have.has(r[0].toLowerCase())) out.foods.push(mkDrink(r)); }); }
+      out.drinksSeeded = true;
       out.foods.forEach(f => { if(f.mode === undefined) Object.assign(f, unitFor(f.name)); });
       if(!Array.isArray(o.combos)) out.combos = seedCombos(out.foods);
       return out;
@@ -696,6 +719,7 @@ function optimize(items, T, boostId){
 }
 function qtyLabel(it){
   const f = foodById(it.id);
+  if(f && f.drink && f.unit){ const n = Math.round(it.g / f.unit.g * 10) / 10; return `${n} ${n === 1 ? f.unit.label : (f.unit.plural || f.unit.label + 's')} · ${it.g} ml`; }
   if(f && f.mode === 'units' && f.unit){ const n = Math.round(it.g / f.unit.g); return `${n} ${n === 1 ? f.unit.label : (f.unit.plural || f.unit.label + 's')} · ${it.g} g`; }
   return it.g + ' g';
 }
@@ -782,7 +806,31 @@ function favCands(slot, T, lo, hi, opt, forces){
   });
   return res;
 }
+const drinkServ = f => (f.unit && f.unit.g) || 250;
+function drinkMacros(f, q){ const m = drinkServ(f) * (q || 1) / 100; return {k:f.k*m, p:f.p*m, c:f.c*m, f:f.f*m}; }
+function drinkList(){ return S.foods.filter(f => f.drink); }
+function drinkRules(){
+  const meals = S.settings.meals, res = meals.map(() => []);
+  S.foods.filter(f => f.drink && f.on && !isAvoided(f)).forEach(f => {
+    const elig = meals.map((m, i) => i).filter(i => allowed(f, meals[i]));
+    if(!elig.length) return;
+    let pool = elig.slice();
+    for(let k = 0; k < (f.perDay > 0 ? f.perDay : 1); k++){ if(!pool.length) pool = elig.slice(); res[pool.splice(Math.floor(Math.random() * pool.length), 1)[0]].push(f.id); }
+  });
+  return res;
+}
 function solveMeal(slot, T, pool, opt, recent){
+  const dr = (slot.drinks || []).map(foodById).filter(f => f && f.drink && !isAvoided(f));
+  if(!dr.length) return solveCore(slot, T, pool, opt, recent);
+  const dm = dr.reduce((t, f) => { const x = drinkMacros(f, 1); t.k += x.k; t.p += x.p; t.c += x.c; t.f += x.f; return t; }, {k:0, p:0, c:0, f:0});
+  const fl = (a, b, mn) => Math.max(a * mn, a - b);
+  const m = solveCore(slot, {k:fl(T.k, dm.k, .35), p:fl(T.p, dm.p, .2), c:fl(T.c, dm.c, .2), f:fl(T.f, dm.f, .2)}, pool, opt, recent);
+  if(!m) return null;
+  m.drinks = dr.map(f => ({id:f.id, g:drinkServ(f)}));
+  m.tot = {k:m.tot.k + dm.k, p:m.tot.p + dm.p, c:m.tot.c + dm.c, f:m.tot.f + dm.f};
+  return m;
+}
+function solveCore(slot, T, pool, opt, recent){
   const st = S.settings;
   const temp = opt.temp || slot.temp || 'any';
   const lo = T.k * (1 - st.mealVar/100), hi = st.ceiling ? T.k*(1+st.mealVar/200) : T.k*(1 + st.mealVar/100);
@@ -856,7 +904,7 @@ function dayWindow(){
 /* ---------- times per day ---------- */
 function dayRules(){
   const meals = S.settings.meals, res = meals.map(() => ({must:[], ban:[]}));
-  S.foods.filter(f => f.on && f.mode !== 'addon' && f.perDay > 0).forEach(f => {
+  S.foods.filter(f => f.on && f.mode !== 'addon' && !f.drink && f.perDay > 0).forEach(f => {
     const elig = meals.map((m,i) => i).filter(i => allowed(f, meals[i]));
     const chosen = elig.filter(i => (meals[i].must || []).includes(f.id));
     const rest = elig.filter(i => !chosen.includes(i));
@@ -868,17 +916,17 @@ function dayRules(){
 function withRule(slot, rule, fn){
   const off = [];
   rule.ban.forEach(id => { const f = foodById(id); if(f && f.on){ f.on = false; off.push(f); } });
-  try{ return fn({...slot, must:[...new Set([...(slot.must || []), ...rule.must])]}); }
+  try{ return fn({...slot, must:[...new Set([...(slot.must || []), ...rule.must])], drinks: rule.drinks || slot.drinks}); }
   finally{ off.forEach(f => f.on = true); }
 }
 function genDay(recent){
   const st = S.settings, T = targets(), [lo,hi] = dayWindow();
   let best = null;
   for(let a=0; a<6; a++){
-    const meals = [], rl = dayRules();
+    const meals = [], rl = dayRules(), dk = drinkRules();
     let ok = true;
     for(let i=0;i<st.meals.length;i++){
-      const m = withRule(st.meals[i], rl[i], sl => solveMeal(sl, T[i], poolFor(sl), {}, recent)) || solveMeal(st.meals[i], T[i], poolFor(st.meals[i]), {}, recent);
+      const m = withRule(st.meals[i], {...rl[i], drinks: dk[i]}, sl => solveMeal(sl, T[i], poolFor(sl), {}, recent)) || solveMeal({...st.meals[i], drinks: dk[i]}, T[i], poolFor(st.meals[i]), {}, recent);
       if(!m){ ok = false; genDay.fail = st.meals[i].name; break; }
       meals.push(m);
     }
@@ -918,9 +966,9 @@ function swapMeal(di, mi, opt){
   const st = S.settings;
   const T = targets()[mi], cur = S.plan.list[di][mi];
   const slot0 = st.meals[mi] || cur, ex = Object.values((opt && opt.exclude) || {});
-  const pd = S.foods.filter(f => f.on && f.mode !== 'addon' && f.perDay > 0), here = new Set(cur.items.map(i => i.id));
-  const rule = {must: pd.filter(f => here.has(f.id) && !ex.includes(f.id)).map(f => f.id), ban: pd.filter(f => !here.has(f.id) || ex.includes(f.id)).map(f => f.id)};
-  const m = withRule(slot0, rule, sl => solveMeal(sl, T, poolFor(sl), {...opt, avoid: cur.sig})) || solveMeal(slot0, T, poolFor(slot0), {...opt, avoid: cur.sig});
+  const pd = S.foods.filter(f => f.on && f.mode !== 'addon' && !f.drink && f.perDay > 0), here = new Set(cur.items.map(i => i.id));
+  const rule = {must: pd.filter(f => here.has(f.id) && !ex.includes(f.id)).map(f => f.id), ban: pd.filter(f => !here.has(f.id) || ex.includes(f.id)).map(f => f.id), drinks: (cur.drinks || []).map(d => d.id)};
+  const m = withRule(slot0, rule, sl => solveMeal(sl, T, poolFor(sl), {...opt, avoid: cur.sig})) || solveMeal({...slot0, drinks: rule.drinks}, T, poolFor(slot0), {...opt, avoid: cur.sig});
   if(!m){ toast('No alternative found with these foods'); return; }
   m.cuisine = cur.cuisine;
   S.plan.list[di][mi] = m;
@@ -942,7 +990,7 @@ function planAvg(){
 }
 function groceryTotals(){
   const P = S.plan, cnt = dayCounts(), g = {};
-  P.list.forEach((d,i) => d.forEach(m => m.items.concat(m.add || []).forEach(it => { g[it.id] = (g[it.id]||0) + it.g*cnt[i]; })));
+  P.list.forEach((d,i) => d.forEach(m => m.items.concat(m.add || [], m.drinks || []).forEach(it => { g[it.id] = (g[it.id]||0) + it.g*cnt[i]; })));
   return g;
 }
 function groceryLines(){
@@ -1007,7 +1055,7 @@ const SCRIPT = `function doPost(e){
 
 /* ---------- recipe prompt ---------- */
 function mealPrompt(m, o={}){
-  const items = m.items.map(it => `${foodById(it.id).name.replace(/ \((raw|dry|drained)\)/,'')} ${it.g} g${foodById(it.id).mode === 'units' ? ' (' + qtyLabel(it).split(' · ')[0] + ')' : ''}`).join(', ');
+  const items = m.items.map(it => `${foodById(it.id).name.replace(/ \((raw|dry|drained)\)/,'')} ${it.g} g${foodById(it.id).mode === 'units' ? ' (' + qtyLabel(it).split(' · ')[0] + ')' : ''}`).join(', ') + ((m.drinks || []).length ? ', plus drink: ' + m.drinks.map(d => (foodById(d.id) || {name:'drink'}).name + ' ' + d.g + ' ml').join(', ') : '');
   const addTxt = (m.add && m.add.length) ? ` Also serve with ${m.add.map(it => foodById(it.id).name + ' ' + it.g + ' g').join(', ')} (not counted in the macros).` : '';
   const st = S.settings, kind = m.type === 'snack' ? 'snack' : m.name.toLowerCase();
   const x = [];
@@ -1049,7 +1097,7 @@ function render(){
   if(S.settings.gclient) loadGIS().catch(() => {});
   const tabs = [['plan','Plan'],['log','Log'],['list','List'],['foods','Foods'],['settings','Settings']];
   $('#nav').innerHTML = tabs.map(t => `<button class="${view===t[0]?'on':''}" data-act="view" data-v="${t[0]}" aria-label="${t[1]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t[0]]}</svg>${t[1]}</button>`).join('');
-  $('#sub').textContent = S.foods.filter(f=>f.on).length + ' foods ticked';
+  $('#sub').textContent = S.foods.filter(f => f.on && !f.drink).length + ' foods ticked';
   $('#app').innerHTML = ({plan:vPlan, log:vLog, weight:vWeight, list:vList, foods:vFoods, settings:vSettings})[view]();
 }
 function ringSVG(k, target){
@@ -1098,6 +1146,7 @@ function vPlan(){
        <div class="mt">${m.cname?`<b>${esc(m.cname)}</b> · `:''}${m.type==='snack'?'Snack':m.type==='big'?'Big meal':'Light meal'}${m.want&&m.want!=='any'?' · '+(m.want==='hot'?'Hot':'Cold'):''}</div>
        ${m.fast ? `<div class="ing"><span>${esc(m.fast.name)}${m.fast.q !== 1 ? ' ×' + m.fast.q : ''}</span><b>${m.fast.price ? money(m.fast.price) : 'eat out'}</b></div>` : ''}
        ${m.items.map(it => `<div class="ing"><span>${esc(foodById(it.id)?.name||'?')}</span><b>${qtyLabel(it)}</b></div>`).join('')}
+       ${(m.drinks||[]).map(it => `<div class="ing"><span>${esc(foodById(it.id)?.name||'?')} <small>drink</small></span><b>${qtyLabel(it)}</b></div>`).join('')}
        ${(m.add||[]).map(it => `<div class="ing add"><span>${esc(foodById(it.id)?.name||'?')} <small>add-on</small></span><b>${it.g} g</b></div>`).join('')}
        <div class="nums">P ${Math.round(m.tot.p)} · C ${Math.round(m.tot.c)} · F ${Math.round(m.tot.f)}</div>
        <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="eatout" data-d="${di}" data-m="${mi}">Eat out</button>${m.fast ? '' : `<button class="s" data-act="mstyle" data-d="${di}" data-m="${mi}">Style: ${esc(styleLabel(m))}</button><button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">${m.recipe ? 'View recipe' : 'Find a recipe'}</button><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button>`}</div>`;
@@ -1301,7 +1350,7 @@ function vLog(){
   else if(menu.past) h += `<div class="mut" style="margin-bottom:8px">Your plan covered ${S.plan.days} days. Showing the same rotation.</div>`;
   st.meals.forEach((sl, i) => {
     const pm = menu && menu.day[i], lm = (L.meals[sl.id] || {entries:[], skipped:false}), lk = lm.entries.reduce((a, e) => a + e.k, 0);
-    const names = pm ? (pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', ')) : '';
+    const names = pm ? mealNames(pm) : '';
     h += `<div class="lgm"><div class="lgm-h"><b>${esc(sl.name)}</b><span class="mut">${lm.entries.length ? `<span class="done-t"><b>${Math.round(lk)}</b></span> / ` : ''}${Math.round(plannedK(menu, i))} kcal</span></div>
      ${pm && !lm.entries.length ? `<div class="lgm-p">${pm.cname ? esc(pm.cname) + ': ' : ''}${esc(names)}</div>` : ''}
      ${lm.skipped ? '<div class="mut">Skipped</div>' : ''}
@@ -1310,7 +1359,7 @@ function vLog(){
   });
   const ex = (L.meals.extra || {entries:[]}).entries;
   h += `<div class="lgm"><div class="lgm-h"><b>Other / snacks</b></div>${ex.map((e, j) => lgEntry(e, 'extra', j)).join('')}
-    <div class="btns"><button class="s lgb" data-act="lgcustom" data-m="extra">Add item</button><button class="s" data-act="lgout" data-mi="-1">Eat out</button></div></div></div>`;
+    <div class="btns"><button class="s lgb" data-act="lgcustom" data-m="extra">Add item</button><button class="s" data-act="lgdrink" data-m="extra">Drink</button><button class="s" data-act="lgout" data-mi="-1">Eat out</button></div></div></div>`;
   h += `<h2 class="sec">Healthy habits</h2><div class="card hab">
    <div class="hrow"><div class="hm"><b>Water</b><small>${(L.water || 0).toFixed(1)} cups${(L.water || 0) === 0 ? ' (you must be thirsty!)' : ' of ' + (st.waterGoal || 8)}</small></div><div class="hb"><button class="rb" data-act="water" data-v="-1" aria-label="Less water">−</button><button class="rb" data-act="water" data-v="1" aria-label="More water">+</button></div></div>
    <button class="hrow" data-act="actopen"><div class="hm"><b>Exercise</b><small>${L.active > 0 ? Math.round(L.active) + ' active calories burned' : 'Track exercise to see calorie burn'}</small></div>${CHEV}</button>
@@ -1342,6 +1391,7 @@ function lgSheet(i){
    ${pm && !(lm && lm.entries.length) ? `<div class="subh" style="margin-top:0">How much did you eat?</div><div class="chips">${qs.map(v => `<button class="chip ${lgQ === v ? 'on' : ''}" data-act="lgq" data-v="${v}" data-mi="${i}">${qLabel(v)}</button>`).join('')}</div>` : ''}
    <div class="opts" style="margin-top:10px">${pm && !(lm && lm.entries.length) ? `<button class="opt" data-act="lgplan" data-mi="${i}" data-q="sheet"><b>✓ Ate ${lgQ === 1 ? 'as planned' : qLabel(lgQ) + ' of the plan'}</b><small>${esc(mealTitle(pm))}${lgQ !== 1 ? ' · ' + Math.round(pm.tot.k * lgQ) + ' kcal' : ''}</small></button>` : ''}
    <button class="opt" data-act="lgout" data-mi="${i}"><b>Eat out</b><small>Pick a chain and see what fits</small></button>
+   <button class="opt" data-act="lgdrink" data-m="${sl.id}"><b>Add a drink</b><small>Coffee, juice, or one you made</small></button>
    <button class="opt" data-act="lgcustom" data-m="${sl.id}"><b>Add an item</b><small>Name and calories</small></button>
    ${lm && (lm.entries.length || lm.skipped) ? '' : `<button class="opt" data-act="lgskip" data-m="${sl.id}"><b>Skip this meal</b><small>Not eating it today</small></button>`}</div>`);
 }
@@ -1350,6 +1400,7 @@ function fabSheet(){
   openModal(`<h3>Quick add</h3><div class="opts">
    <button class="opt" data-act="fabmeal"><b>Log a meal</b><small>Choose which meal</small></button>
    <button class="opt" data-act="lgout" data-mi="-1"><b>Eat out</b><small>Fast food options by chain</small></button>
+   <button class="opt" data-act="lgdrink" data-m="extra"><b>Log a drink</b><small>Coffee, juice, protein shake</small></button>
    <button class="opt" data-act="lgcustom" data-m="extra"><b>Quick add calories</b><small>A snack or anything else</small></button>
    <button class="opt" data-act="fabwater"><b>Add water</b><small>+1 cup</small></button>
    <button class="opt" data-act="wadd"><b>Weigh-in</b><small>Log your weight</small></button></div>`);
@@ -1506,6 +1557,7 @@ function planAvoided(){
 }
 /* ----- per meal style ----- */
 let styleCtx = null;
+const mealNames = pm => pm.fast ? pm.fast.name : pm.items.concat(pm.drinks || []).map(it => foodById(it.id)?.name).filter(Boolean).join(', ');
 function mealTitle(m){ return m.cname || m.items.slice(0, 2).map(it => cleanName((foodById(it.id) || {name:'?'}).name)).join(' & ') || m.name; }
 function styleLabel(m){ const c = m.cuisine || []; return c.length ? c.join(', ') : 'Plain and simple'; }
 function styleModal(di, mi, all){
@@ -1540,7 +1592,7 @@ ${st.pantry.length ? `- Pantry (sauces, spices, condiments I have): ${st.pantry.
 MEALS
 `;
   const blocks = menus.map(mn => `## Menu ${mn.di + 1}${S.plan.days > 1 ? ` (used on day${mn.days.length > 1 ? 's' : ''} ${mn.days.join(', ')})` : ''}\n` + mn.meals.map(({m, mi}) => {
-    const t = m.tot, ing = m.items.map(it => `${foodById(it.id)?.name || '?'} ${qtyLabel(it)}`).concat((m.add || []).map(it => `${foodById(it.id)?.name || '?'} ${it.g} g`)).join('; ');
+    const t = m.tot, ing = m.items.map(it => `${foodById(it.id)?.name || '?'} ${qtyLabel(it)}`).concat((m.add || []).map(it => `${foodById(it.id)?.name || '?'} ${it.g} g`), (m.drinks || []).map(it => `${foodById(it.id)?.name || '?'} ${it.g} ml`)).join('; ');
     return `[${mn.di + 1}.${mi + 1}] ${m.name} (${Math.round(t.k)} kcal, P ${Math.round(t.p)} g, C ${Math.round(t.c)} g, F ${Math.round(t.f)} g). Style: ${styleLabel(m)}.\n  Ingredients: ${ing}`;
   }).join('\n'));
   const parts = []; let cur = [], len = 0;
@@ -1757,11 +1809,11 @@ function fastCost(){
   return t;
 }
 
-function foodTabs(){ return seg([['foods','Foods'],['meals','Meals'],['combos','Combos']], foodTab, 'ftab', 'big'); }
+function foodTabs(){ return seg([['foods','Foods'],['drinks','Drinks'],['meals','Meals'],['combos','Combos']], foodTab, 'ftab', 'big'); }
 function foodBar(ph, scan){
   return `<div class="fbar"><input id="food_q" type="search" autocomplete="off" placeholder="${ph}" value="${esc(foodQ)}">${scan ? `<button class="ibtn" data-act="scan" aria-label="Scan barcode">${CAM}</button>` : ''}</div>${seg(MEAL_FILTERS, foodMeal, 'fmeal')}`;
 }
-function vFoods(){ const hid = S.foods.filter(f => f.on && isAvoided(f)).map(f => f.name); return foodTabs() + (hid.length ? `<div class="warn">Hidden from plans by your avoid list: ${esc(hid.join(', '))}.</div>` : '') + (foodTab === 'combos' ? vCombos() : foodTab === 'meals' ? vFast() : vFoodList()); }
+function vFoods(){ const hid = S.foods.filter(f => f.on && isAvoided(f)).map(f => f.name); return foodTabs() + (hid.length ? `<div class="warn">Hidden from plans by your avoid list: ${esc(hid.join(', '))}.</div>` : '') + (foodTab === 'combos' ? vCombos() : foodTab === 'meals' ? vFast() : foodTab === 'drinks' ? vDrinks() : vFoodList()); }
 function foodListHtml(){
   const st = S.settings;
   if(!storeSel || !st.stores.includes(storeSel)) storeSel = st.primary;
@@ -1789,11 +1841,56 @@ function foodListHtml(){
   if(!any) h = `<div class="mut" style="padding:16px 2px">${foodMeal !== 'all' && !foodQ ? 'Nothing ticked for ' + MEAL_FILTERS.find(x => x[0] === foodMeal)[1].toLowerCase() + ' yet. Switch to All to add foods.' : 'No foods match.'}</div>`;
   return h;
 }
+let drOpen = null, dl = {mid:'extra'}, drEdit = null;
+function drinkPlanRow(f){
+  return `<div class="drp"><div class="mut">Times per day</div><div class="chips">${[1,2,3,4].map(v => `<button class="chip sm ${(f.perDay || 1) === v ? 'on' : ''}" data-act="drper" data-id="${f.id}" data-v="${v}">${v}×</button>`).join('')}</div>
+   <div class="mut" style="margin-top:8px">Which meals</div><div class="chips">${S.settings.meals.map(m => `<button class="chip sm ${allowed(f, m) ? 'on' : ''}" data-act="drmeal" data-id="${f.id}" data-m="${m.id}">${esc(m.name)}</button>`).join('')}</div>
+   <div class="mut" style="margin-top:8px">${f.on ? 'Planned: its calories count toward the meal it lands in.' : 'Tick it to include it in your plan.'}</div>
+   <div class="row" style="margin-top:10px"><button class="s" data-act="dredit" data-id="${f.id}">Edit</button><button class="s" data-act="drdel" data-id="${f.id}">Delete</button></div></div>`;
+}
+function drinkRow(f){
+  const m = drinkMacros(f, 1), open = drOpen === f.id;
+  return `<div class="drk"><div class="dr"><input type="checkbox" data-act="tick" data-id="${f.id}" ${f.on ? 'checked' : ''} aria-label="Plan ${esc(f.name)}">
+   <div class="nm">${esc(f.name)}<small>${Math.round(m.k)} kcal · P ${Math.round(m.p)} · C ${Math.round(m.c)} · F ${Math.round(m.f)} · ${drinkServ(f)} ml ${esc(f.unit.label)}</small></div>
+   <button class="s sm" data-act="dropen" data-id="${f.id}">${open ? 'Done' : 'Plan'}</button></div>${open ? drinkPlanRow(f) : ''}</div>`;
+}
+function vDrinks(){
+  const ds = drinkList();
+  return `<div class="card"><h2>Drinks</h2><div class="mut">Tick a drink to put it in your meal plan. Its calories count toward the meal it lands in, and that meal's food shrinks to fit. You can also log any drink from the Log tab. Make your own, like a protein coffee.</div>
+   <div style="margin-top:8px">${ds.map(drinkRow).join('') || '<div class="mut">No drinks yet.</div>'}</div>
+   <div class="row" style="margin-top:14px"><button class="b" style="flex:1" data-act="drnew">+ New drink</button></div></div>`;
+}
+function drinkModal(id){
+  const f = id ? foodById(id) : null, m = f ? drinkMacros(f, 1) : {k:'', p:'', c:'', f:''};
+  const r1 = x => x === '' ? '' : Math.round(x * 10) / 10;
+  const n = (i, lab, v) => `<label class="f">${lab}<input id="${i}" type="number" inputmode="decimal" step="any" value="${v}" placeholder="0"></label>`;
+  const foods = S.foods.filter(x => !x.drink && x.mode !== 'addon').sort((a, b) => a.name.localeCompare(b.name));
+  drEdit = id || null;
+  openModal(`<h3>${f ? 'Edit drink' : 'New drink'}</h3>
+   <label class="f">Name<input id="dr_name" value="${f ? esc(f.name) : ''}" placeholder="e.g. Protein coffee"></label>
+   <div class="grid2" style="margin-top:10px"><label class="f">Serving name<input id="dr_label" value="${f ? esc(f.unit.label) : 'cup'}"></label><label class="f">Serving size (ml)<input id="dr_ml" type="number" inputmode="numeric" value="${f ? drinkServ(f) : 250}"></label></div>
+   <div class="mut" style="margin:12px 0 4px">Nutrition per serving</div>
+   <div class="grid" style="grid-template-columns:repeat(4,1fr)">${n('dr_k', 'kcal', r1(m.k))}${n('dr_p', 'Protein', r1(m.p))}${n('dr_c', 'Carbs', r1(m.c))}${n('dr_f', 'Fat', r1(m.f))}</div>
+   <label class="f" style="margin-top:10px">Price per serving ($, optional)<input id="dr_price" type="number" inputmode="decimal" step="0.01" value="${f ? (f.price * drinkServ(f) / 1000).toFixed(2) : ''}" placeholder="0.00"></label>
+   <div class="subh">Or build it from foods</div>
+   <div class="mut" style="margin-bottom:6px">Pick an ingredient and the amount. Each Add puts its nutrition into the boxes above.</div>
+   <div class="row"><select id="dr_food" style="flex:1;min-width:0">${foods.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><input id="dr_g" type="number" inputmode="decimal" placeholder="g" style="width:76px"><button class="s" data-act="drbadd">Add</button></div>
+   <div class="mut" id="dr_parts" style="margin-top:6px"></div>
+   <div class="row" style="margin-top:16px"><button class="b" style="flex:1" data-act="drsave">Save drink</button><button class="g" data-act="mclose2">Cancel</button></div>`, true);
+}
+function drinkLogModal(mid){
+  dl.mid = mid;
+  openModal(`<h3>Log a drink</h3><div class="mut" style="margin-bottom:6px">Pick a drink and how many servings.</div>` +
+   drinkList().map((f, i) => { const m = drinkMacros(f, 1);
+     return `<div class="eo"><div style="margin-bottom:6px"><b>${esc(f.name)}</b><div class="mut">${Math.round(m.k)} kcal · P ${Math.round(m.p)} · C ${Math.round(m.c)} · F ${Math.round(m.f)} · ${drinkServ(f)} ml ${esc(f.unit.label)}</div></div>
+      <div class="row"><select id="dq_${i}" aria-label="Servings">${[0.5,1,1.5,2,3].map(v => `<option ${v === 1 ? 'selected' : ''}>${v}</option>`).join('')}</select><button class="s" data-act="drlog" data-id="${f.id}" data-qi="${i}">Log it</button></div></div>`; }).join('') +
+   `<div class="row" style="margin-top:12px"><button class="b" data-act="drnewlog">+ New drink</button><button class="g" data-act="mclose2">Cancel</button></div>`, true);
+}
 function vFoodList(){
   const st = S.settings;
   if(!storeSel || !st.stores.includes(storeSel)) storeSel = st.primary;
   return `<div class="card">${foodBar('Search foods', true)}
-   <div class="fsum"><span>${S.foods.filter(f => f.on).length} of ${S.foods.length} ticked</span><label>Prices at <select data-act="pstore">${st.stores.map(x => `<option ${x===storeSel?'selected':''}>${esc(x)}</option>`).join('')}</select></label></div>
+   <div class="fsum"><span>${S.foods.filter(f => f.on && !f.drink).length} of ${S.foods.filter(f => !f.drink).length} ticked</span><label>Prices at <select data-act="pstore">${st.stores.map(x => `<option ${x===storeSel?'selected':''}>${esc(x)}</option>`).join('')}</select></label></div>
    ${foodMeal !== 'all' ? `<div class="fhint">Showing only what you ticked for ${MEAL_FILTERS.find(x => x[0] === foodMeal)[1].toLowerCase()}. Switch to All to add more.</div>` : ''}
    <div id="food_list">${foodListHtml()}</div>
    <div class="row" style="margin-top:14px"><button class="g" data-act="addfood">+ Add food</button></div></div>
@@ -2610,8 +2707,33 @@ document.addEventListener('click', async e => {
     case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); L.burn = 0; save(); rerender(); break; }
     case 'lgdel': { const L = logMeal(logDate || today(), el.dataset.m); L.entries.splice(+el.dataset.i, 1); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgskip': { closeModal(); logMeal(logDate || today(), el.dataset.m).skipped = true; save(); render(); break; }
-    case 'lgplan': { closeModal(); const q = el.dataset.q === 'sheet' ? lgQ : 1; lgQ = 1; const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names + (q !== 1 ? ` (${qLabel(q)} portion)` : ''), k:pm.tot.k*q, p:pm.tot.p*q, c:pm.tot.c*q, f:pm.tot.f*q, q, src:'plan', ms: pm.fast ? null : {sig:mealSig(pm), name:mealTitle(pm), ids:pm.items.map(i => i.id), kind:kindOf(sl)}}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'lgplan': { closeModal(); const q = el.dataset.q === 'sheet' ? lgQ : 1; lgQ = 1; const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = mealNames(pm); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names + (q !== 1 ? ` (${qLabel(q)} portion)` : ''), k:pm.tot.k*q, p:pm.tot.p*q, c:pm.tot.c*q, f:pm.tot.f*q, q, src:'plan', ms: pm.fast ? null : {sig:mealSig(pm), name:mealTitle(pm), ids:pm.items.map(i => i.id), kind:kindOf(sl)}}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgcustom': lgCustomModal(el.dataset.m); break;
+    case 'lgdrink': drinkLogModal(el.dataset.m); break;
+    case 'drlog': { const f = foodById(el.dataset.id), q = parseFloat($('#dq_' + el.dataset.qi).value) || 1; if(f){ const m = drinkMacros(f, q), date = logDate || today();
+        if(!f.k && !f.p && !f.c && !f.f && /water/i.test(f.name)){ const L = logEnsure(date); L.water = (L.water || 0) + drinkServ(f) * q / 240; save(); }
+        else logAdd(date, dl.mid, {name: f.name + (q !== 1 ? ' ×' + q : ''), k:m.k, p:m.p, c:m.c, f:m.f, src:'drink'}); }
+      closeModal(); { const y = window.scrollY; render(); window.scrollTo(0, y); } toast('Logged'); break; }
+    case 'drnew': drinkModal(null); break;
+    case 'drnewlog': drinkModal(null); drEdit = '__log'; break;
+    case 'dredit': drinkModal(el.dataset.id); break;
+    case 'dropen': drOpen = drOpen === el.dataset.id ? null : el.dataset.id; render(); break;
+    case 'drper': { const f = foodById(el.dataset.id); f.perDay = +el.dataset.v; save(); render(); break; }
+    case 'drmeal': { const f = foodById(el.dataset.id), ml = S.settings.meals.find(x => x.id === el.dataset.m); if(f && ml){ f.use = f.use || {}; f.use[ml.id] = !allowed(f, ml); save(); render(); } break; }
+    case 'drdel': { S.foods = S.foods.filter(x => x.id !== el.dataset.id); drOpen = null; save(); render(); toast('Drink deleted'); break; }
+    case 'drbadd': { const x = foodById($('#dr_food').value), g = parseFloat($('#dr_g').value) || 0; if(!x || !g){ toast('Pick a food and an amount'); break; }
+      const add = (id, v) => { const e = $('#' + id); e.value = Math.round(((parseFloat(e.value) || 0) + v) * 10) / 10; };
+      add('dr_k', x.k * g / 100); add('dr_p', x.p * g / 100); add('dr_c', x.c * g / 100); add('dr_f', x.f * g / 100);
+      const pr = $('#dr_parts'); pr.textContent = (pr.textContent ? pr.textContent + ', ' : 'Built from: ') + x.name.replace(/ \((raw|dry|drained)\)/, '') + ' ' + g + ' g';
+      $('#dr_g').value = ''; break; }
+    case 'drsave': {
+      const name = $('#dr_name').value.trim(); if(!name){ toast('Name needed'); break; }
+      const nv = i => parseFloat($('#' + i).value) || 0, ml = nv('dr_ml'); if(ml <= 0){ toast('Serving size needed'); break; }
+      const per = v => Math.round(v * 100 / ml * 100) / 100, label = $('#dr_label').value.trim() || 'serving', price = nv('dr_price') * 1000 / ml;
+      const fromLog = drEdit === '__log'; let f = drEdit && !fromLog ? foodById(drEdit) : null;
+      if(f){ Object.assign(f, {name, k:per(nv('dr_k')), p:per(nv('dr_p')), c:per(nv('dr_c')), f:per(nv('dr_f')), price}); f.unit = {...f.unit, g:ml, label, plural:plural(label)}; }
+      else S.foods.push({id:uid(), name, cat:'drink', drink:true, mode:'units', unit:{g:ml, label, plural:plural(label), min:1, max:3}, k:per(nv('dr_k')), p:per(nv('dr_p')), c:per(nv('dr_c')), f:per(nv('dr_f')), price, maxg:null, avg:null, n:0, sp:{}, on:!fromLog, kinds:null, use:null, perDay:0});
+      save(); closeModal(); if(fromLog) drinkLogModal(dl.mid); else { render(); toast('Drink saved'); } break; }
     case 'lgcustomgo': { const v = id => parseFloat($('#' + id).value) || 0, name = $('#lc_name').value.trim() || 'Item'; if(!v('lc_k')){ toast('Add the calories'); break; } logAdd(logDate || today(), el.dataset.m, {name, k:v('lc_k'), p:v('lc_p'), c:v('lc_c'), f:v('lc_f')}); closeModal(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgout': { lo.mi = +el.dataset.mi; lo.mealId = lo.mi >= 0 ? S.settings.meals[lo.mi].id : 'extra'; const b = loBudgets(); lo.budget = lo.mi >= 0 ? Math.round(b.target) : Math.max(0, Math.round(b.remaining)); lo.chain = null; logOutModal(); break; }
     case 'lochain': lo.chain = el.dataset.c; logOutModal(); break;
