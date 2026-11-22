@@ -672,14 +672,33 @@ function dayWindow(){
   const st = S.settings;
   return [st.kcal*(1 - st.dayVar/100), st.ceiling ? st.kcal : st.kcal*(1 + st.dayVar/100)];
 }
+
+/* ---------- times per day ---------- */
+function dayRules(){
+  const meals = S.settings.meals, res = meals.map(() => ({must:[], ban:[]}));
+  S.foods.filter(f => f.on && f.mode !== 'addon' && f.perDay > 0).forEach(f => {
+    const elig = meals.map((m,i) => i).filter(i => allowed(f, meals[i]));
+    const chosen = elig.filter(i => (meals[i].must || []).includes(f.id));
+    const rest = elig.filter(i => !chosen.includes(i));
+    while(chosen.length < f.perDay && rest.length) chosen.push(rest.splice(Math.floor(Math.random()*rest.length), 1)[0]);
+    meals.forEach((m,i) => (chosen.includes(i) ? res[i].must : res[i].ban).push(f.id));
+  });
+  return res;
+}
+function withRule(slot, rule, fn){
+  const off = [];
+  rule.ban.forEach(id => { const f = foodById(id); if(f && f.on){ f.on = false; off.push(f); } });
+  try{ return fn({...slot, must:[...new Set([...(slot.must || []), ...rule.must])]}); }
+  finally{ off.forEach(f => f.on = true); }
+}
 function genDay(recent){
   const st = S.settings, T = targets(), [lo,hi] = dayWindow();
   let best = null;
   for(let a=0; a<6; a++){
-    const meals = [];
+    const meals = [], rl = dayRules();
     let ok = true;
     for(let i=0;i<st.meals.length;i++){
-      const m = solveMeal(st.meals[i], T[i], poolFor(st.meals[i]), {}, recent);
+      const m = withRule(st.meals[i], rl[i], sl => solveMeal(sl, T[i], poolFor(sl), {}, recent)) || solveMeal(st.meals[i], T[i], poolFor(st.meals[i]), {}, recent);
       if(!m){ ok = false; genDay.fail = st.meals[i].name; break; }
       meals.push(m);
     }
@@ -718,7 +737,10 @@ function generate(){
 function swapMeal(di, mi, opt){
   const st = S.settings;
   const T = targets()[mi], cur = S.plan.list[di][mi];
-  const m = solveMeal(st.meals[mi] || cur, T, poolFor(st.meals[mi] || cur), {...opt, avoid: cur.sig});
+  const slot0 = st.meals[mi] || cur, ex = Object.values((opt && opt.exclude) || {});
+  const pd = S.foods.filter(f => f.on && f.mode !== 'addon' && f.perDay > 0), here = new Set(cur.items.map(i => i.id));
+  const rule = {must: pd.filter(f => here.has(f.id) && !ex.includes(f.id)).map(f => f.id), ban: pd.filter(f => !here.has(f.id) || ex.includes(f.id)).map(f => f.id)};
+  const m = withRule(slot0, rule, sl => solveMeal(sl, T, poolFor(sl), {...opt, avoid: cur.sig})) || solveMeal(slot0, T, poolFor(slot0), {...opt, avoid: cur.sig});
   if(!m){ toast('No alternative found with these foods'); return; }
   S.plan.list[di][mi] = m;
   save(); render();
@@ -1000,7 +1022,8 @@ function allocRow(f){
       <div class="fgrid"><label class="f">1 unit is (g)<input type="number" inputmode="decimal" data-act="u_g" data-id="${f.id}" value="${u.g}"></label><label class="f">Called<input data-act="u_label" data-id="${f.id}" value="${esc(u.label)}"></label><label class="f">At least<input type="number" inputmode="numeric" data-act="u_min" data-id="${f.id}" value="${u.min || 1}"></label><label class="f">At most<input type="number" inputmode="numeric" data-act="u_max" data-id="${f.id}" value="${u.max || 4}"></label></div>` : ''}
      ${mode === 'addon' ? `<div class="mut">Goes in every meal it is allowed in, at a fixed amount. Not counted in calories or macros, but it is on the shopping list.</div>
       <label class="f" style="margin-top:8px">Amount per meal (g)<input type="number" inputmode="decimal" data-act="f_addg" data-id="${f.id}" value="${f.addG || 10}"></label>` : ''}
-     ${mode !== 'addon' ? `<div class="mut" style="font-weight:600;margin-top:12px">Always include in</div><div class="chips">${meals.map(m => `<button class="chip sm ${(m.must || []).includes(f.id) ? 'on' : ''}" data-act="flock" data-id="${f.id}" data-m="${m.id}">${esc(m.name)}</button>`).join('')}</div>` : ''}</div>`;
+     ${mode !== 'addon' ? `<div class="mut" style="font-weight:600;margin-top:12px">Times per day</div><div class="chips">${[[0,'Auto'],[1,'1×'],[2,'2×'],[3,'3×'],[4,'4×']].map(([v,l]) => `<button class="chip sm ${(f.perDay || 0) === v ? 'on' : ''}" data-act="fper" data-id="${f.id}" data-v="${v}">${l}</button>`).join('')}</div><div class="mut">${f.perDay ? `In exactly ${Math.min(f.perDay, meals.length)} of ${meals.length} meals each day, and kept out of the rest.` : 'Auto lets the planner decide.'}</div>
+     <div class="mut" style="font-weight:600;margin-top:12px">Always include in</div><div class="chips">${meals.map(m => `<button class="chip sm ${(m.must || []).includes(f.id) ? 'on' : ''}" data-act="flock" data-id="${f.id}" data-m="${m.id}">${esc(m.name)}</button>`).join('')}</div>` : ''}</div>`;
   }
   return h;
 }
@@ -1718,63 +1741,121 @@ let scanStream = null, scanLive = false, zxPromise = null;
 function stopScan(){ scanLive = false; if(scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; } }
 function loadZX(){
   if(window.ZXing) return Promise.resolve();
-  if(!zxPromise) zxPromise = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'; sc.onload = res; sc.onerror = () => { zxPromise = null; rej(new Error('scanner library did not load')); }; document.head.appendChild(sc); });
+  if(!zxPromise) zxPromise = new Promise((res, rej) => {
+    const srcs = ['zxing.min.js', 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js']; let i = 0;
+    const next = () => {
+      if(i >= srcs.length){ zxPromise = null; rej(new Error('scanner library did not load')); return; }
+      const sc = document.createElement('script'); sc.src = srcs[i++]; sc.onload = () => window.ZXing ? res() : next(); sc.onerror = () => { sc.remove(); next(); }; document.head.appendChild(sc);
+    };
+    next();
+  });
   return zxPromise;
+}
+let zxReaderObj = null;
+async function zxReader(){
+  await loadZX();
+  if(!zxReaderObj){
+    const F = ZXing.BarcodeFormat, hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    zxReaderObj = new ZXing.MultiFormatReader(); zxReaderObj.setHints(hints);
+  }
+  return zxReaderObj;
+}
+function zxDecodeCanvas(rd, cv){
+  try{ return rd.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)))).getText(); }catch(e){ return null; }
+}
+/* draw a region of src (video or image) into cv, scaled to maxW wide, optionally rotated 90 degrees */
+function zxDraw(cv, src, sw, sh, rx, ry, rw, rh, maxW, rot){
+  const sc = Math.min(1, maxW / (rot ? rh : rw)), w = Math.max(1, Math.round(rw*sc)), h = Math.max(1, Math.round(rh*sc));
+  const cx = cv.getContext('2d', {willReadFrequently:true});
+  if(rot){ cv.width = h; cv.height = w; cx.save(); cx.translate(h, 0); cx.rotate(Math.PI/2); cx.drawImage(src, rx, ry, rw, rh, 0, 0, w, h); cx.restore(); }
+  else { cv.width = w; cv.height = h; cx.drawImage(src, rx, ry, rw, rh, 0, 0, w, h); }
+}
+/* try several crops, scales and rotations of one frame */
+function zxScanSource(rd, cv, src, sw, sh, quick){
+  const V = [[0,0,sw,sh,1280,0], [sw*.05, sh*.25, sw*.9, sh*.5, 1280, 0], [sw*.25, sh*.05, sw*.5, sh*.9, 1280, 1]];
+  if(!quick) V.push([0,0,sw,sh,2000,0], [0,0,sw,sh,800,0], [0,0,sw,sh,1280,1], [sw*.1, sh*.35, sw*.8, sh*.3, 1600, 0], [0,0,sw,sh,640,0]);
+  for(const v of V){ zxDraw(cv, src, sw, sh, ...v); const r = zxDecodeCanvas(rd, cv); if(r) return r; }
+  return null;
+}
+async function scanPhoto(file){
+  const msg = t => { const m = $('#scan_msg'); if(m) m.textContent = t; };
+  if(!file) return;
+  stopScan(); msg('Reading the photo...');
+  try{
+    const url = URL.createObjectURL(file), img = new Image(); img.src = url; await img.decode();
+    const sw = img.naturalWidth, sh = img.naturalHeight, cv = document.createElement('canvas');
+    let code = null;
+    if('BarcodeDetector' in window){ try{ const r = await new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']}).detect(img); if(r.length) code = r[0].rawValue; }catch(e){} }
+    if(!code){ const rd = await zxReader(); code = zxScanSource(rd, cv, img, sw, sh, false); }
+    URL.revokeObjectURL(url);
+    if(code) onCode(code); else msg('Could not read that photo. Get closer so the bars fill the frame, or type the digits below.');
+  }catch(e){ msg('Could not read that photo (' + e.message + '). Type the digits below.'); }
 }
 function scanModal(){
   openModal(`<h3>Scan barcode</h3>
    <div class="vid"><video id="scan_v" playsinline muted></video></div>
    <div class="mut" id="scan_msg" style="margin-top:8px">Starting camera...</div>
    <label class="f" style="margin-top:12px">Or type the number under the barcode<input id="scan_code" inputmode="numeric" placeholder="e.g. 0068100087049"></label>
-   <div class="row" style="margin-top:12px"><button class="b" data-act="scancode">Look up</button><button class="g" data-act="mclose">Cancel</button></div>`);
+   <div class="row" style="margin-top:12px"><button class="b" data-act="scancode">Look up</button><label class="g" style="display:inline-block;cursor:pointer">Take a photo<input type="file" accept="image/*" capture="environment" data-act="scanfile" style="display:none"></label><button class="g" data-act="mclose">Cancel</button></div>`);
   startScan();
 }
 async function startScan(){
   const msg = t => { const m = $('#scan_msg'); if(m) m.textContent = t; };
   try{
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Camera is not available here');
-    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false});
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}, audio:false});
     const v = $('#scan_v');
     if(!v){ stream.getTracks().forEach(t => t.stop()); return; }
     scanStream = stream; scanLive = true; v.srcObject = stream; await v.play();
-    msg('Hold the barcode inside the picture and keep it steady.');
-    if('BarcodeDetector' in window){
-      const det = new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']});
-      const loop = async () => { if(!scanLive) return; try{ const r = await det.detect(v); if(r.length){ onCode(r[0].rawValue); return; } }catch(e){} setTimeout(loop, 200); };
-      loop();
-    } else {
-      await loadZX();
-      const hints = new Map(); hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E]); hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      const reader = new ZXing.MultiFormatReader(); reader.setHints(hints);
-      const cv = document.createElement('canvas'), cx = cv.getContext('2d', {willReadFrequently:true});
-      const loop = () => {
-        if(!scanLive) return;
-        if(v.videoWidth){
-          const w = Math.min(960, v.videoWidth), h = Math.round(w * v.videoHeight / v.videoWidth); cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h);
-          try{ const r = reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)))); if(r){ onCode(r.getText()); return; } }catch(e){}
-        }
-        setTimeout(loop, 160);
-      };
-      loop();
-    }
-  }catch(e){ msg((e.name === 'NotAllowedError' ? 'Camera permission was blocked. Allow it for this site, or type the number below.' : 'Could not start the camera (' + e.message + '). You can type the number below.')); }
+    try{ await stream.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){}
+    const hint = 'Hold the barcode 15 to 25 cm away, flat and steady, filling the picture.';
+    msg('Loading the reader...');
+    const t0 = Date.now(); let n = 0, det = null;
+    if('BarcodeDetector' in window){ try{ det = new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']}); }catch(e){} }
+    const rd = await zxReader();
+    msg(hint);
+    const cv = document.createElement('canvas');
+    const loop = async () => {
+      if(!scanLive) return;
+      n++;
+      if(v.videoWidth){
+        try{
+          if(det){ const r = await det.detect(v); if(r.length){ onCode(r[0].rawValue); return; } }
+          const code = zxScanSource(rd, cv, v, v.videoWidth, v.videoHeight, n % 4 !== 0);
+          if(code){ onCode(code); return; }
+        }catch(e){}
+      }
+      if(n % 10 === 0){ const sec = Math.round((Date.now() - t0) / 1000); msg(sec >= 10 ? 'Still looking. Try more light, or tap Take a photo, or type the digits below.' : hint); }
+      setTimeout(loop, 120);
+    };
+    loop();
+  }catch(e){ msg((e.name === 'NotAllowedError' ? 'Camera permission was blocked. Allow it for this site, or tap Take a photo or type the number below.' : 'Could not start the camera (' + e.message + '). Tap Take a photo or type the number below.')); }
 }
 function onCode(raw){ stopScan(); lookupCode(String(raw)); }
 async function lookupCode(raw){
-  let code = raw.replace(/\D/g, ''); if(!code){ toast('Enter the digits under the barcode'); return; }
-  if(code.length === 12) code = '0' + code;
+  const digits = String(raw).replace(/\D/g, ''); if(!digits){ toast('Enter the digits under the barcode'); return; }
+  let code = digits.length === 12 ? '0' + digits : digits;
+  const tries = [...new Set([code, digits, code.length === 13 && code[0] === '0' ? code.slice(1) : null].filter(Boolean))];
   openModal(`<h3>Looking up ${esc(code)}</h3><div class="mut"><span class="stat busy"><i class="spin"></i>Checking Open Food Facts...</span></div>`);
-  try{
-    const j = await jfetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`);
-    if(j.status !== 1 || !j.product) throw new Error('notfound');
-    const pr = j.product, n = pr.nutriments || {};
+  let net = 0, found = null;
+  for(const c of tries){
+    try{
+      const j = await jfetch(`https://world.openfoodfacts.org/api/v2/product/${c}.json?fields=product_name,brands,nutriments`);
+      if(j.status === 1 && j.product){ found = j.product; break; }
+    }catch(e){ net++; }
+  }
+  if(found){
+    const pr = found, n = pr.nutriments || {};
     const kcal = n['energy-kcal_100g'] != null ? +n['energy-kcal_100g'] : (n['energy_100g'] != null ? +n['energy_100g'] / 4.184 : 0);
     const nm = [pr.brands && pr.brands.split(',')[0].trim(), pr.product_name].filter(Boolean).join(' ');
     scanResult(code, {name:nm, k:Math.round(kcal), p:+(n.proteins_100g || 0).toFixed(1), c:+(n.carbohydrates_100g || 0).toFixed(1), f:+(n.fat_100g || 0).toFixed(1)}, kcal > 0 || n.proteins_100g != null);
-  }catch(e){
-    openModal(`<h3>Not found</h3><div class="mut">${e.message === 'notfound' ? 'Open Food Facts does not have ' + esc(code) + ' yet.' : 'Lookup failed (' + esc(e.message) + ').'} You can add it by hand.</div>
-     <div class="row" style="margin-top:14px"><button class="b" data-act="addfood">Add by hand</button><button class="g" data-act="scan">Scan again</button><button class="g" data-act="mclose">Close</button></div>`);
+    return;
   }
+  scanResult(code, {name:'', k:0, p:0, c:0, f:0}, false);
+  const h = document.querySelector('#modal .sheet h3');
+  if(h) h.insertAdjacentHTML('afterend', `<div class="warn">${net === tries.length ? 'Could not reach Open Food Facts (offline or blocked).' : 'Open Food Facts does not have this one yet.'} Enter it once from the label and the app remembers the barcode.</div>`);
 }
 function guessCat(p, c, f, k){
   if(f >= 20) return 'fat';
@@ -1864,6 +1945,7 @@ document.addEventListener('click', async e => {
     case 'grp': { const g = el.dataset.g, cur = el.closest('.grp').classList.contains('open'); openGrp[g] = !cur; const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'gtick': case 'gclear': { const on = a === 'gtick'; S.foods.filter(f => grpOf(f) === el.dataset.g && foodShown(f)).forEach(f => f.on = on); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'fopt': openFood[el.dataset.id] = !openFood[el.dataset.id]; { const y = window.scrollY; render(); window.scrollTo(0, y); } break;
+    case 'fper': { const f = foodById(el.dataset.id), v = +el.dataset.v; f.perDay = v || null; save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'fmode': { const f = foodById(el.dataset.id); f.mode = el.dataset.v; if(f.mode === 'units' && !f.unit) f.unit = {g:50, label:'unit', plural:'units', min:1, max:4}; if(f.mode === 'addon' && !f.addG) f.addG = 10; if(f.mode === 'addon') S.settings.meals.forEach(m => { m.must = (m.must || []).filter(x => x !== f.id); }); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'flock': { const f = foodById(el.dataset.id), m = S.settings.meals.find(x => x.id === el.dataset.m); m.must = m.must || []; if(m.must.includes(f.id)) m.must = m.must.filter(x => x !== f.id); else { m.must.push(f.id); f.on = true; f.use = f.use || {}; S.settings.meals.forEach(mm => { if(f.use[mm.id] === undefined) f.use[mm.id] = allowed(f, mm); }); f.use[m.id] = true; } save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'cready_only': comboReady = !comboReady; render(); break;
@@ -1928,6 +2010,7 @@ document.addEventListener('change', e => {
     save(); if(view==='settings') render(); return;
   }
   const a = el.dataset.act;
+  if(a === 'scanfile'){ scanPhoto(el.files && el.files[0]); return; }
   if(a === 'mname'){ st.meals[+el.dataset.i].name = el.value; save(); }
   if(a === 'mtype'){ st.meals[+el.dataset.i].type = el.value; save(); }
   if(a === 'mtemp'){ st.meals[+el.dataset.i].temp = el.value; save(); }
