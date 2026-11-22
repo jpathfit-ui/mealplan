@@ -262,12 +262,105 @@ main>.seg{margin:14px 0 4px}
 .star.heart{color:var(--line)}.star.heart.on{color:var(--terra)}
 .mn .star{font-size:20px;vertical-align:1px}
 #modal textarea{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 11px}
+
+/* v23: vivid theme, dashboard layout */
+:root{
+ --bg:#eef2ff;--bg2:#dfe8ff;--paper:#ffffff;--card:#ffffff;--ink:#12172b;--mut:#66709a;--line:#e1e6f5;
+ --acc:#2f6bff;--acc3:#7b4dff;--accink:#ffffff;--acc2:#e6ecff;--warn:#c2410c;--warnbg:#ffedd5;--bad:#e5384f;--bar:#cfdcff;
+ --ochre:#ffab1a;--terra:#ff5470;--good:#12b886;--shadow:rgba(40,60,140,.32);
+ --serif:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media(prefers-color-scheme:dark){:root{
+ --bg:#0e1322;--bg2:#1b2c52;--paper:#1a2037;--card:#1a2037;--ink:#f1f4ff;--mut:#9aa5cc;--line:#2a3253;
+ --acc:#5b8cff;--acc3:#9a73ff;--accink:#0b1020;--acc2:#252f58;--warn:#ffb26b;--warnbg:#3a2a1a;--bad:#ff7088;--bar:#2c3f78;
+ --ochre:#ffbe3d;--terra:#ff6f88;--good:#34d3a0;--shadow:rgba(0,0,0,.6)}}
+body{background-image:linear-gradient(180deg,var(--bg2) 0,var(--bg) 380px);background-attachment:scroll}
+header h1{color:var(--ink);font-weight:800}
+header h1 svg{color:var(--acc)}
+h3,.card h2,.acc-t,.mn,.lgm-h b,.rec{font-family:var(--serif)}
+.card h2,.acc-t{color:var(--ink);font-weight:750}
+.card h2::before{background:linear-gradient(180deg,var(--acc),var(--acc3));width:5px}
+.card,.card:first-child,.acc,.acc:first-child{border-color:transparent;box-shadow:0 10px 30px -18px var(--shadow)}
+.card.mut{border:1px dashed var(--line)}
+button.b,.bn-a button,.chip.on,.seg button.on,nav button.on,#fab{background:linear-gradient(135deg,var(--acc),var(--acc3));color:#fff}
+.chip.on{border-color:transparent}
+.seg button.on{box-shadow:0 4px 10px -4px var(--shadow)}
+button.b{box-shadow:0 10px 20px -10px var(--shadow)}
+button.s,a.s{background:var(--acc2);color:var(--acc)}
+.tag{background:var(--acc2);color:var(--acc)}
+.bn{background:linear-gradient(135deg,var(--acc),var(--acc3));color:#fff}
+.bn-a button{color:var(--acc);background:#fff}
+.bn-a .bn-x{background:none;color:#fff}
+.dayh,.daycard .dayh{background:linear-gradient(135deg,var(--acc2),transparent)}
+.daycard .dh-t b{color:var(--ink)}
+nav div{background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-color:var(--line)}
+nav{justify-content:flex-start;padding:0 92px 0 14px}
+nav div{max-width:none}
+nav button{font-size:11px;padding:9px 2px 8px}
+nav button.on{color:#fff}
+#fab{position:fixed;right:16px;bottom:calc(12px + env(safe-area-inset-bottom));width:64px;height:64px;border-radius:50%;border:0;z-index:6;display:flex;align-items:center;justify-content:center;box-shadow:0 14px 26px -8px var(--shadow);cursor:pointer}
+#fab svg{width:30px;height:30px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round}
+#fab:active{transform:scale(.94)}
+main{padding-bottom:150px}
+.toast{bottom:104px}
+.ok{color:var(--good)}
+/* today dashboard */
+.td-top{display:flex;align-items:center;gap:10px;margin:14px 0 6px}
+.td-top .wt{flex:1;text-align:center;font:750 20px var(--serif)}
+.td-t{display:flex;align-items:center;gap:6px;background:none;border:0;font:800 30px var(--serif);color:var(--ink);cursor:pointer;padding:0}
+.td-t .chev{width:22px;height:22px;stroke:var(--mut)}
+.wk{display:flex;align-items:flex-end;justify-content:space-between;gap:2px;margin:6px 0 6px}
+.wk-d{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;font:inherit;color:var(--mut);cursor:pointer;padding:0}
+.wk-d .dot{width:5px;height:5px;border-radius:50%;background:transparent}
+.wk-d.sel .dot{background:var(--ink)}
+.wk-d span{font-size:13px;font-weight:600}
+.wk-d.sel span{color:var(--ink)}
+.wk-d b{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff}
+.wk-d.sel b{border-style:dashed;border-color:var(--mut)}
+.wk-d.lg b{background:var(--good);border:2px solid var(--good)}
+.streak{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-left:10px;margin-left:6px;border-left:1px solid var(--line);position:relative;min-width:44px;color:var(--line)}
+.streak svg{width:34px;height:34px;fill:currentColor}
+.streak.on{color:#ff7a1a}
+.streak em{position:absolute;bottom:0;font-style:normal;font-weight:800;font-size:13px;background:var(--paper);color:var(--ink);border-radius:99px;padding:0 6px;border:1px solid var(--line)}
+.td-card{padding:16px}
+.td-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:2px}
+.td-n{font:800 32px var(--serif);font-variant-numeric:tabular-nums}
+.td-left{font-size:15px;color:var(--mut)}.td-left b{font:800 26px var(--serif);color:var(--ink);font-variant-numeric:tabular-nums}
+.td-left.over b{color:var(--bad)}
+.lg-bar{height:12px}
+.lg-bar i{background:linear-gradient(90deg,var(--acc),var(--acc3))}
+.mcs{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.mc span{font-size:14px;color:var(--mut)}.mc b{display:block;font:800 21px var(--serif);margin:2px 0 8px;font-variant-numeric:tabular-nums}.mc small{font:500 14px system-ui;color:var(--mut)}
+.mc .mbt{height:8px}
+h2.sec{font:800 22px var(--serif);margin:22px 2px 8px;color:var(--ink)}
+.card.hab{padding:4px 16px}
+.hrow{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:16px 0;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.hrow:first-child{border-top:0}
+.hm b{display:block;font:700 18px var(--serif)}.hm small{display:block;color:var(--mut);font-size:14px;margin-top:2px}
+.hb{display:flex;gap:8px}
+.rb{width:40px;height:40px;border-radius:50%;border:0;background:var(--acc2);color:var(--acc);font-size:24px;font-weight:700;cursor:pointer;line-height:1}
+.chev.r{transform:none;stroke:var(--mut);width:20px;height:20px}
+.lgb{background:linear-gradient(135deg,var(--acc),var(--acc3));color:#fff}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:block;width:100%;text-align:left;background:var(--acc2);border:0;border-radius:16px;padding:14px 16px;font:inherit;color:var(--ink);cursor:pointer}
+.opt b{display:block;font:700 17px var(--serif)}.opt small{display:block;color:var(--mut);font-size:13px;margin-top:2px}
+.cal-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.cal-h b{font:800 20px var(--serif)}.cal-h span{display:flex;gap:8px}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center}
+.cal-g em{font-style:normal;color:var(--mut);font-size:12px;font-weight:700}
+.cd{height:42px;border-radius:50%;border:0;background:none;font:inherit;font-size:16px;color:var(--ink);cursor:pointer;position:relative}
+.cd.lg::after{content:"";position:absolute;left:50%;bottom:3px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--good)}
+.cd.tod{border:2px solid var(--acc)}
+.cd.sel{background:var(--acc);color:#fff}
+.wchart{width:100%;height:auto;display:block}
+.wchart .gl{stroke:var(--line);stroke-width:1}.wchart .gt{fill:var(--mut);font-size:11px}
+.ibtn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body>
 <header><h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z"/><path d="M5 19c3-4 6-7 10-9"/></svg>Meal Plan</h1><span id="sub"></span></header>
 <main id="app"></main>
 <nav><div id="nav"></div></nav>
+<button id="fab" data-act="fab" aria-label="Quick add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
 <div id="modal"></div>
 <div id="toast"></div>
 <div id="banner"></div>
@@ -275,7 +368,7 @@ main>.seg{margin:14px 0 4px}
 <script>
 /* ---------- helpers ---------- */
 const $ = (s, r=document) => r.querySelector(s);
-const BUILD = '2026-11-22.5';
+const BUILD = '2026-11-22.6';
 const uid = () => Math.random().toString(36).slice(2, 9);
 const rnd = n => Math.floor(Math.random() * n);
 const pick = a => a[rnd(a.length)];
@@ -941,7 +1034,7 @@ function render(){
   const tabs = [['plan','Plan'],['log','Log'],['list','List'],['foods','Foods'],['settings','Settings']];
   $('#nav').innerHTML = tabs.map(t => `<button class="${view===t[0]?'on':''}" data-act="view" data-v="${t[0]}" aria-label="${t[1]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t[0]]}</svg>${t[1]}</button>`).join('');
   $('#sub').textContent = S.foods.filter(f=>f.on).length + ' foods ticked';
-  $('#app').innerHTML = ({plan:vPlan, log:vLog, list:vList, foods:vFoods, settings:vSettings})[view]();
+  $('#app').innerHTML = ({plan:vPlan, log:vLog, weight:vWeight, list:vList, foods:vFoods, settings:vSettings})[view]();
 }
 function ringSVG(k, target){
   const r = 46, C = 2*Math.PI*r, pct = Math.max(0, Math.min(1, target ? k/target : 0));
@@ -1163,40 +1256,111 @@ function menuFor(date){
 }
 function plannedK(menu, i){ const st = S.settings; return menu && menu.day[i] ? menu.day[i].tot.k : targets()[i].k; }
 function logAdd(date, mid, e){ logMeal(date, mid).entries.push({name:e.name, k:Math.round(e.k), p:Math.round(e.p*10)/10, c:Math.round(e.c*10)/10, f:Math.round(e.f*10)/10, src:e.src || 'manual', ms:e.ms || null}); logMeal(date, mid).skipped = false; save(); }
+let calM = null, wRange = '6M', actOpen = false;
+const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c.8 3.6 5.2 5.2 5.2 10.3a5.2 5.2 0 0 1-10.4 0c0-2.1 1-3.4 2.1-4.5.3 1.7 1 2.4 2 2.6C10.6 8.6 10.7 5.6 12 2.5z"/></svg>';
+const CHEV = '<svg class="chev r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
+function dayLogged(d){ return logTotals(d).k > 0; }
+function streakN(){ let d = today(), n = 0; if(!dayLogged(d)) d = addDays(d, -1); while(dayLogged(d)){ n++; d = addDays(d, -1); } return n; }
+function lastWeight(){ const W = (S.weights || []).slice().sort((a, b) => a.d < b.d ? -1 : 1); return W[W.length - 1] || null; }
+function wDisp(lb){ return S.settings.wunit === 'kg' ? lb / 2.20462 : lb; }
+function wFmt(lb){ return wDisp(lb).toFixed(1) + (S.settings.wunit === 'kg' ? ' kg' : ' lbs'); }
 function vLog(){
   const st = S.settings, date = logDate || (logDate = today()), L = logEnsure(date), menu = menuFor(date), tot = logTotals(date);
   const tgt = st.kcal, left = tgt - tot.k, over = left < 0;
   const burned = L.burn > 0 ? L.burn : (st.baseBurn || 0) + (L.active || 0), defi = burned - tot.k, haveBurn = L.burn > 0 || st.baseBurn > 0;
   const tp = tgt*st.pPct/100/4, tc = tgt*st.cPct/100/4, tf = tgt*st.fPct/100/9;
-  let h = `<div class="lg-nav"><button class="ibtn" data-act="lgday" data-v="-1" aria-label="Previous day">‹</button><b>${date === today() ? 'Today' : dayLabel(date)}${date === today() ? ' · ' + dayLabel(date) : ''}</b><button class="ibtn" data-act="lgday" data-v="1" aria-label="Next day">›</button></div>`;
-  h += `<div class="card panel"><div class="lg-big ${over ? 'over' : ''}"><b>${Math.abs(Math.round(left))}</b><span class="mut">kcal ${over ? 'over target' : 'left today'}</span></div>
-   <div class="lg-bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, Math.max(0, tot.k / tgt * 100)).toFixed(0)}%"></i></div>
-   <div class="mut">${Math.round(tot.k)} eaten of ${tgt} kcal target</div>
-   <div style="margin-top:10px">${macroBar('Protein', tot.p, tp, 'var(--acc)')}${macroBar('Carbs', tot.c, tc, 'var(--ochre)')}${macroBar('Fat', tot.f, tf, 'var(--terra)')}</div>
-   ${haveBurn ? `<div class="lg-trio"><div><b>${Math.round(tot.k)}</b>eaten</div><div><b>${Math.round(burned)}</b>burned</div><div><b class="${defi >= 0 ? 'ok' : 'bad'}">${Math.round(Math.abs(defi))}</b>${defi >= 0 ? 'deficit' : 'surplus'}</div></div>` : `<div class="mut" style="margin-top:12px">Connect Fitbit in Settings, or set a baseline burn in Settings → Targets, to see your deficit.</div>`}</div>`;
-  h += `<div class="card"><h2>Activity</h2><div class="grid2">
-    <label class="f">Steps<input type="number" inputmode="numeric" data-act="lg_steps" value="${L.steps || ''}" placeholder="0"></label>
-    <label class="f">Active calories burned<input type="number" inputmode="numeric" data-act="lg_active" value="${L.active || ''}" placeholder="0"></label></div>
-    <div class="row" style="margin-top:10px">${st.gclient ? '<button class="b" data-act="fitsync">Sync Fitbit</button>' : ''}<button class="g" data-act="lg_est">Estimate from steps</button></div>
-    ${fitMsg ? `<div class="mut" style="margin-top:8px">${esc(fitMsg)}</div>` : ''}
-    <div class="mut" style="margin-top:8px">${L.burn > 0 ? 'Burned uses your Fitbit total for the day (resting plus active). ' : 'Without Fitbit, burned is your baseline plus active calories. '}${st.gclient ? '' : 'Connect Fitbit under Settings. '}Steps estimate about 0.04 kcal each.</div></div>`;
-  h += `<div class="card"><h2>Meals</h2>`;
+  const dow = new Date(date + 'T12:00:00').getDay(), sun = addDays(date, -dow), sk = streakN(), lw = lastWeight();
+  let h = `<div class="td-top"><button class="td-t" data-act="calopen">${date === today() ? 'Today' : dayLabel(date)}<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button><span class="mut">${date === today() ? dayLabel(date) : ''}</span></div>
+   <div class="wk">${[0,1,2,3,4,5,6].map(i => { const d = addDays(sun, i), lg = dayLogged(d); return `<button class="wk-d ${d === date ? 'sel' : ''} ${lg ? 'lg' : ''}" data-act="lgpick" data-d="${d}" aria-label="${dayLabel(d)}"><i class="dot"></i><span>${'SMTWTFS'[i]}</span><b>${lg ? '✓' : ''}</b></button>`; }).join('')}<div class="streak ${sk ? 'on' : ''}" title="Days in a row with food logged">${FLAME}<em>${sk}</em></div></div>`;
+  h += `<div class="card td-card"><div class="mut">Calories</div><div class="td-row"><span><b class="td-n">${Math.round(tot.k)}</b> <span class="mut">cal / ${tgt}</span></span><span class="td-left ${over ? 'over' : ''}"><b>${Math.abs(Math.round(left))}</b> ${over ? 'over' : 'left'}</span></div>
+   <div class="lg-bar ${over ? 'over' : ''}"><i style="width:${Math.min(100, Math.max(0, tot.k / tgt * 100)).toFixed(0)}%"></i></div></div>
+   <div class="card td-card"><div class="mcs">${[['Carbs', tot.c, tc, 'var(--ochre)'], ['Fat', tot.f, tf, 'var(--terra)'], ['Protein', tot.p, tp, 'var(--acc)']].map(([n, v, t, c]) => `<div class="mc"><span>${n}</span><b>${Math.round(v)} g <small>/ ${Math.round(t)}</small></b><div class="mbt"><i style="width:${Math.min(100, t ? v / t * 100 : 0).toFixed(0)}%;background:${c}"></i></div></div>`).join('')}</div></div>`;
+  if(haveBurn) h += `<div class="card td-card"><div class="lg-trio" style="margin:0;padding:0;border:0"><div><b>${Math.round(tot.k)}</b>eaten</div><div><b>${Math.round(burned)}</b>burned</div><div><b class="${defi >= 0 ? 'ok' : 'bad'}">${Math.round(Math.abs(defi))}</b>${defi >= 0 ? 'deficit' : 'surplus'}</div></div></div>`;
+  h += `<h2 class="sec">Healthy habits</h2><div class="card hab">
+   <div class="hrow"><div class="hm"><b>Water</b><small>${(L.water || 0).toFixed(1)} cups${(L.water || 0) === 0 ? ' (you must be thirsty!)' : ' of ' + (st.waterGoal || 8)}</small></div><div class="hb"><button class="rb" data-act="water" data-v="-1" aria-label="Less water">−</button><button class="rb" data-act="water" data-v="1" aria-label="More water">+</button></div></div>
+   <button class="hrow" data-act="actopen"><div class="hm"><b>Exercise</b><small>${L.active > 0 ? Math.round(L.active) + ' active calories burned' : 'Track exercise to see calorie burn'}</small></div>${CHEV}</button>
+   <button class="hrow" data-act="actopen"><div class="hm"><b>Steps</b><small>${Math.round(L.steps || 0).toLocaleString()} steps ${date === today() ? 'today' : 'that day'}</small></div>${CHEV}</button></div>
+   <h2 class="sec">Weight</h2><div class="card hab"><button class="hrow" data-act="view" data-v="weight"><div class="hm"><b>${lw ? wFmt(lw.v) : 'Add your first weigh-in'}</b><small>${lw ? 'Logged ' + dayLabel(lw.d) : 'Track your trend over time'}</small></div>${CHEV}</button></div>`;
+  h += `<h2 class="sec">Meals</h2><div class="card">`;
   if(!menu) h += `<div class="mut" style="margin-bottom:8px">${S.plan ? 'No plan covers this date, so log what you ate below.' : 'Generate a plan to see planned meals here. You can still log what you eat.'}</div>`;
   else if(menu.past) h += `<div class="mut" style="margin-bottom:8px">Your plan covered ${S.plan.days} days. Showing the same rotation.</div>`;
   st.meals.forEach((sl, i) => {
     const pm = menu && menu.day[i], lm = (L.meals[sl.id] || {entries:[], skipped:false}), lk = lm.entries.reduce((a, e) => a + e.k, 0);
     const names = pm ? (pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', ')) : '';
     h += `<div class="lgm"><div class="lgm-h"><b>${esc(sl.name)}</b><span class="mut">${lm.entries.length ? `<span class="done-t"><b>${Math.round(lk)}</b></span> / ` : ''}${Math.round(plannedK(menu, i))} kcal</span></div>
-     ${pm ? `<div class="lgm-p">${pm.cname ? esc(pm.cname) + ': ' : ''}${esc(names)}</div>` : ''}
+     ${pm && !lm.entries.length ? `<div class="lgm-p">${pm.cname ? esc(pm.cname) + ': ' : ''}${esc(names)}</div>` : ''}
      ${lm.skipped ? '<div class="mut">Skipped</div>' : ''}
      ${lm.entries.map((e, j) => `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small></span><button class="x" data-act="lgdel" data-m="${sl.id}" data-i="${j}" aria-label="Remove">×</button></div>${e.ms ? rateRow(e.ms) : ''}`).join('')}
-     ${pm && pm.recipe ? `<div class="btns"><button class="s" data-act="lgrecipe" data-d="${menu.n % S.plan.rotate}" data-m="${i}">View recipe</button></div>` : ''}
-     <div class="btns">${pm && !lm.entries.length ? `<button class="s" data-act="lgplan" data-mi="${i}">Ate as planned</button>` : ''}<button class="s" data-act="lgout" data-mi="${i}">Eat out</button><button class="s" data-act="lgcustom" data-m="${sl.id}">Add item</button>${lm.entries.length || lm.skipped ? '' : `<button class="g" data-act="lgskip" data-m="${sl.id}">Skip</button>`}</div></div>`;
+     <div class="btns"><button class="s lgb" data-act="lgsheet" data-mi="${i}">Log</button>${pm && !lm.entries.length ? `<button class="s" data-act="lgplan" data-mi="${i}">Ate as planned</button>` : ''}${pm && pm.recipe ? `<button class="s" data-act="lgrecipe" data-d="${menu.n % S.plan.rotate}" data-m="${i}">Recipe</button>` : ''}</div></div>`;
   });
   const ex = (L.meals.extra || {entries:[]}).entries;
   h += `<div class="lgm"><div class="lgm-h"><b>Other / snacks</b></div>${ex.map((e, j) => `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small></span><button class="x" data-act="lgdel" data-m="extra" data-i="${j}" aria-label="Remove">×</button></div>`).join('')}
-    <div class="btns"><button class="s" data-act="lgcustom" data-m="extra">Add item</button><button class="s" data-act="lgout" data-mi="-1">Eat out</button></div></div></div>`;
+    <div class="btns"><button class="s lgb" data-act="lgcustom" data-m="extra">Add item</button><button class="s" data-act="lgout" data-mi="-1">Eat out</button></div></div></div>`;
+  h += `<h2 class="sec">Notes</h2><div class="card"><textarea data-act="lg_note" rows="2" placeholder="Add a note" style="width:100%;border:0;background:transparent;padding:0;resize:vertical">${esc(L.note || '')}</textarea></div>`;
   return h;
+}
+function rerender(){ render(); if(actOpen) actModal(); }
+function actModal(){
+  const st = S.settings, date = logDate || today(), L = logEnsure(date);
+  openModal(`<h3>Activity</h3>
+   <div class="grid2"><label class="f">Steps<input type="number" inputmode="numeric" data-act="lg_steps" value="${L.steps || ''}" placeholder="0"></label>
+   <label class="f">Active calories burned<input type="number" inputmode="numeric" data-act="lg_active" value="${L.active || ''}" placeholder="0"></label></div>
+   <div class="row" style="margin-top:12px">${st.gclient ? '<button class="b" data-act="fitsync">Sync Fitbit</button>' : ''}<button class="g" data-act="lg_est">Estimate from steps</button></div>
+   ${fitMsg ? `<div class="mut" style="margin-top:8px">${esc(fitMsg)}</div>` : ''}
+   <div class="mut" style="margin-top:8px">${L.burn > 0 ? 'Burned uses your Fitbit total for the day (resting plus active). ' : 'Without Fitbit, burned is your baseline plus active calories. '}${st.gclient ? '' : 'Connect Fitbit under Settings. '}Steps estimate about 0.04 kcal each.</div>
+   <div class="row" style="margin-top:14px"><button class="b" data-act="actclose">Done</button></div>`);
+  actOpen = true;
+}
+function lgSheet(i){
+  const st = S.settings, sl = st.meals[i], date = logDate || today(), menu = menuFor(date), pm = menu && menu.day[i], L = logEnsure(date), lm = L.meals[sl.id];
+  openModal(`<h3>Log ${esc(sl.name)}</h3><div class="mut" style="margin-bottom:12px">${Math.round(plannedK(menu, i))} kcal planned</div>
+   <div class="opts">${pm && !(lm && lm.entries.length) ? `<button class="opt" data-act="lgplan" data-mi="${i}"><b>✓ Ate as planned</b><small>${esc(mealTitle(pm))}</small></button>` : ''}
+   <button class="opt" data-act="lgout" data-mi="${i}"><b>Eat out</b><small>Pick a chain and see what fits</small></button>
+   <button class="opt" data-act="lgcustom" data-m="${sl.id}"><b>Add an item</b><small>Name and calories</small></button>
+   ${lm && (lm.entries.length || lm.skipped) ? '' : `<button class="opt" data-act="lgskip" data-m="${sl.id}"><b>Skip this meal</b><small>Not eating it today</small></button>`}</div>`);
+}
+function fabSheet(){
+  const st = S.settings;
+  openModal(`<h3>Quick add</h3><div class="opts">
+   <button class="opt" data-act="fabmeal"><b>Log a meal</b><small>Choose which meal</small></button>
+   <button class="opt" data-act="lgout" data-mi="-1"><b>Eat out</b><small>Fast food options by chain</small></button>
+   <button class="opt" data-act="lgcustom" data-m="extra"><b>Quick add calories</b><small>A snack or anything else</small></button>
+   <button class="opt" data-act="fabwater"><b>Add water</b><small>+1 cup</small></button>
+   <button class="opt" data-act="wadd"><b>Weigh-in</b><small>Log your weight</small></button></div>`);
+}
+function calModal(){
+  const date = logDate || today(); if(!calM) calM = date.slice(0, 7);
+  const [y, m] = calM.split('-').map(Number), first = new Date(y, m - 1, 1), nd = new Date(y, m, 0).getDate(), pad = first.getDay();
+  let cells = ''; for(let i = 0; i < pad; i++) cells += '<span></span>';
+  for(let d = 1; d <= nd; d++){ const ds = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`; cells += `<button class="cd ${ds === date ? 'sel' : ''} ${ds === today() ? 'tod' : ''} ${dayLogged(ds) ? 'lg' : ''}" data-act="lgpick" data-d="${ds}">${d}</button>`; }
+  openModal(`<div class="cal-h"><b>${first.toLocaleDateString(undefined, {month:'long', year:'numeric'})}</b><span><button class="ibtn" data-act="calnav" data-v="-1" aria-label="Previous month">‹</button><button class="ibtn" data-act="calnav" data-v="1" aria-label="Next month">›</button></span></div>
+   <div class="cal-g">${'SMTWTFS'.split('').map(x => `<em>${x}</em>`).join('')}${cells}</div>
+   <div class="row" style="margin-top:14px"><button class="g" data-act="lgpick" data-d="${today()}">Today</button><button class="g" data-act="mclose2">Close</button></div>`);
+}
+/* ----- weight / measurements ----- */
+function niceTicks(lo, hi){ const span = Math.max(hi - lo, 1), step = [1,2,2.5,5,10,20,50].find(x => span / x <= 5) || 100, a = Math.floor(lo / step) * step, t = []; for(let v = a; v <= hi + step; v += step){ t.push(v); if(v > hi) break; } return t; }
+function vWeight(){
+  const W = (S.weights || []).slice().sort((a, b) => a.d < b.d ? -1 : 1), days = {'1M':30, '3M':90, '6M':182, 'All':99999}[wRange], cut = addDays(today(), -days), R = W.filter(x => x.d >= cut);
+  const sd = R[0], cu = R[R.length - 1], ch = sd && cu ? wDisp(cu.v) - wDisp(sd.v) : 0, pct = sd ? ch / wDisp(sd.v) * 100 : 0, u = S.settings.wunit === 'kg' ? 'kg' : 'lbs';
+  let h = `<div class="td-top"><button class="ibtn" data-act="view" data-v="log" aria-label="Back">‹</button><b class="wt">Measurements</b><button class="ibtn" data-act="wadd" aria-label="Add weigh-in">+</button></div>
+   ${seg([['1M','1M'],['3M','3M'],['6M','6M'],['All','All']], wRange, 'wrange')}
+   <div class="card td-card"><div class="lg-trio" style="margin:0;padding:0;border:0"><div><b>${sd ? wDisp(sd.v).toFixed(1) : '–'}</b>start (${u})</div><div><b>${cu ? wDisp(cu.v).toFixed(1) : '–'}</b>current (${u})</div><div><b class="${ch > 0 ? 'bad' : 'ok'}">${ch > 0 ? '+' : ''}${ch.toFixed(1)}</b>change (${pct > 0 ? '+' : ''}${pct.toFixed(1)}%)</div></div></div>`;
+  if(R.length >= 2){
+    const vs = R.map(x => wDisp(x.v)), tk = niceTicks(Math.min(...vs), Math.max(...vs)), lo = tk[0], hi = tk[tk.length - 1], X0 = 40, X1 = 330, Y0 = 14, Y1 = 170, t0 = R[0].d, span = Math.max(1, dayDiff(t0, R[R.length - 1].d));
+    const px = r => X0 + dayDiff(t0, r.d) / span * (X1 - X0), py = v => Y1 - (v - lo) / (hi - lo || 1) * (Y1 - Y0);
+    const pts = R.map(r => `${px(r).toFixed(1)},${py(wDisp(r.v)).toFixed(1)}`).join(' ');
+    const lab = [R[0], R[R.length - 1]];
+    h += `<div class="card"><svg viewBox="0 0 340 200" class="wchart" role="img" aria-label="Weight over time">${tk.map(v => `<line x1="${X0}" x2="${X1}" y1="${py(v).toFixed(1)}" y2="${py(v).toFixed(1)}" class="gl"/><text x="${X0 - 6}" y="${(py(v) + 4).toFixed(1)}" text-anchor="end" class="gt">${v}</text>`).join('')}
+     <polyline points="${pts}" fill="none" stroke="var(--acc)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>${R.map(r => `<circle cx="${px(r).toFixed(1)}" cy="${py(wDisp(r.v)).toFixed(1)}" r="3.5" fill="var(--acc)"/>`).join('')}
+     ${lab.map(r => `<text x="${px(r).toFixed(1)}" y="192" text-anchor="middle" class="gt">${new Date(r.d + 'T12:00:00').toLocaleDateString(undefined, {month:'short', day:'numeric'})}</text>`).join('')}</svg></div>`;
+  } else h += `<div class="card mut">Add at least two weigh-ins in this range to see your trend.</div>`;
+  h += `<h2 class="sec">Entries</h2><div class="card">${W.length ? W.slice().reverse().map(x => `<div class="lge"><span><b>${wFmt(x.v)}</b><small>${new Date(x.d + 'T12:00:00').toLocaleDateString(undefined, {weekday:'long', month:'long', day:'numeric', year:'numeric'})}</small></span><button class="x" data-act="wdel" data-d="${x.d}" aria-label="Delete">×</button></div>`).join('') : '<div class="mut">No entries yet. Tap + to add one.</div>'}</div>`;
+  return h;
+}
+function weighModal(){
+  openModal(`<h3>Weigh-in</h3><label class="f">Weight (${S.settings.wunit === 'kg' ? 'kg' : 'lbs'})<input id="w_v" type="number" inputmode="decimal" step="0.1" placeholder="0.0"></label>
+   <label class="f" style="margin-top:10px">Date<input id="w_d" type="date" value="${logDate || today()}" max="${today()}"></label>
+   <div class="row" style="margin-top:16px"><button class="b" data-act="wsave">Save</button><button class="g" data-act="mclose2">Cancel</button></div>`);
 }
 function lgCustomModal(mid){
   const n = (id, lab) => `<label class="f">${lab}<input id="${id}" type="number" inputmode="decimal" placeholder="0"></label>`;
@@ -1266,9 +1430,9 @@ async function hRoll(tok, type, date){
 const numIn = o => { if(o == null) return null; if(typeof o === 'number') return o; if(typeof o === 'string' && o.trim() !== '' && !isNaN(+o)) return +o; if(typeof o === 'object'){ for(const k in o){ const v = numIn(o[k]); if(v != null) return v; } } return null; };
 function fitSync(){
   const date = logDate || today();
-  fitMsg = 'Connecting to Google Health...'; if(view === 'log' || view === 'settings') render();
+  fitMsg = 'Connecting to Google Health...'; rerender();
   gToken().then(async tok => {
-    fitMsg = 'Reading your Fitbit data...'; if(view === 'log' || view === 'settings') render();
+    fitMsg = 'Reading your Fitbit data...'; rerender();
     const R = await Promise.allSettled([hRoll(tok, 'steps', date), hRoll(tok, 'total-calories', date), hRoll(tok, 'active-energy-burned', date)]);
     const pick = (x, key) => { if(x.status !== 'fulfilled') return null; const dp = (x.value.rollupDataPoints || [])[0]; return dp && dp[key] != null ? numIn(dp[key]) : null; };
     const L = logEnsure(date), steps = pick(R[0], 'steps'), burn = pick(R[1], 'totalCalories'), act = pick(R[2], 'activeEnergyBurned');
@@ -1281,8 +1445,8 @@ function fitSync(){
     if(act != null) L.active = Math.round(act);
     L.synced = Date.now(); save();
     fitMsg = 'Synced ' + new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) + (R.some(x => x.status === 'rejected') ? ' (some data was unavailable)' : '');
-    render();
-  }).catch(e => { fitMsg = 'Could not sync: ' + e.message; if(/401/.test(e.message)) gTok = null; if(view === 'log' || view === 'settings') render(); });
+    rerender();
+  }).catch(e => { fitMsg = 'Could not sync: ' + e.message; if(/401/.test(e.message)) gTok = null; rerender(); });
 }
 
 /* ---------- diet, kitchen, recipes, ratings ---------- */
@@ -1640,6 +1804,7 @@ function vSettings(){
    <label class="f">Calories<input type="number" data-k="kcal" value="${st.kcal}"></label>
    <label class="f">Day variance %<input type="number" data-k="dayVar" value="${st.dayVar}"></label>
    <label class="f">Meal variance %<input type="number" data-k="mealVar" value="${st.mealVar}"></label></div>
+   <div class="grid2" style="margin-top:14px"><label class="f">Water goal (cups)<input type="number" inputmode="numeric" data-k="waterGoal" value="${st.waterGoal || 8}"></label><div><div class="f2">Weight unit</div>${seg([['lb','lbs'],['kg','kg']], st.wunit || 'lb', 'wunit')}</div></div>
    <label class="f" style="margin-top:14px">Daily baseline burn (kcal, resting plus normal movement)<input type="number" inputmode="numeric" data-k="baseBurn" value="${st.baseBurn || ''}" placeholder="e.g. 2400"></label>
    <div class="mut" style="margin:14px 0 6px">Macros: edit the percent or the grams and the other follows your calorie target.</div>
    <div class="grid">${macroField('Protein','pPct',4)}${macroField('Carbs','cPct',4)}${macroField('Fat','fPct',9)}</div>
@@ -1978,8 +2143,8 @@ function removeStore(name){
 }
 
 /* ---------- modals ---------- */
-function openModal(html){ if(typeof closeBanner==='function') closeBanner(); $('#modal').innerHTML = `<div class="modal" data-act="mclose"><div class="sheet">${html}</div></div>`; }
-function closeModal(){ stopScan(); $('#modal').innerHTML = ''; }
+function openModal(html){ actOpen = false; if(typeof closeBanner==='function') closeBanner(); $('#modal').innerHTML = `<div class="modal" data-act="mclose"><div class="sheet">${html}</div></div>`; }
+function closeModal(){ actOpen = false; stopScan(); $('#modal').innerHTML = ''; }
 
 
 /* ---------- combos UI ---------- */
@@ -2398,12 +2563,27 @@ document.addEventListener('click', async e => {
     case 'favsig': { const r = (S.ratings || {})[el.dataset.sig]; if(r){ r.fav = !r.fav; save(); const y = window.scrollY; render(); window.scrollTo(0, y); } break; }
     case 'rate': { const ms = findMs(el.dataset.sig); if(ms){ const r = rateRec(ms), v = +el.dataset.v; r.stars = r.stars === v ? 0 : v; save(); const y = window.scrollY; render(); window.scrollTo(0, y); } break; }
     case 'reloadapp': { try{ if(window.caches){ const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } }catch(err){} location.replace(location.pathname + '?v=' + Date.now()); break; }
+    case 'lgpick': { logDate = el.dataset.d; calM = logDate.slice(0, 7); closeModal(); if(view !== 'log') view = 'log'; render(); break; }
+    case 'calopen': calM = null; calModal(); break;
+    case 'calnav': { const [y, m] = calM.split('-').map(Number), d = new Date(y, m - 1 + +el.dataset.v, 1); calM = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); calModal(); break; }
+    case 'water': { const L = logEnsure(logDate || today()); L.water = Math.max(0, (L.water || 0) + +el.dataset.v); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'actopen': actModal(); break;
+    case 'actclose': closeModal(); render(); break;
+    case 'lgsheet': lgSheet(+el.dataset.mi); break;
+    case 'fab': fabSheet(); break;
+    case 'fabmeal': { openModal(`<h3>Which meal?</h3><div class="opts">${S.settings.meals.map((m, i) => `<button class="opt" data-act="lgsheet" data-mi="${i}"><b>${esc(m.name)}</b></button>`).join('')}</div>`); break; }
+    case 'fabwater': { const L = logEnsure(logDate || today()); L.water = (L.water || 0) + 1; save(); closeModal(); toast('Water: ' + L.water.toFixed(1) + ' cups'); if(view === 'log') render(); break; }
+    case 'wadd': weighModal(); break;
+    case 'wsave': { const v = parseFloat($('#w_v').value), d = $('#w_d').value || today(); if(!v || v <= 0){ toast('Enter your weight'); break; } const lb = S.settings.wunit === 'kg' ? v * 2.20462 : v; S.weights = (S.weights || []).filter(x => x.d !== d); S.weights.push({d, v:Math.round(lb * 10) / 10}); save(); closeModal(); render(); toast('Weigh-in saved'); break; }
+    case 'wdel': { S.weights = (S.weights || []).filter(x => x.d !== el.dataset.d); save(); render(); break; }
+    case 'wrange': wRange = el.dataset.v; render(); break;
+    case 'wunit': S.settings.wunit = el.dataset.v; save(); render(); break;
     case 'fitsync': fitSync(); break;
     case 'lgday': logDate = addDays(logDate || today(), +el.dataset.v); render(); break;
-    case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); L.burn = 0; save(); render(); break; }
+    case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); L.burn = 0; save(); rerender(); break; }
     case 'lgdel': { const L = logMeal(logDate || today(), el.dataset.m); L.entries.splice(+el.dataset.i, 1); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
-    case 'lgskip': { logMeal(logDate || today(), el.dataset.m).skipped = true; save(); render(); break; }
-    case 'lgplan': { const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names, k:pm.tot.k, p:pm.tot.p, c:pm.tot.c, f:pm.tot.f, src:'plan', ms: pm.fast ? null : {sig:mealSig(pm), name:mealTitle(pm), ids:pm.items.map(i => i.id), kind:kindOf(sl)}}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'lgskip': { closeModal(); logMeal(logDate || today(), el.dataset.m).skipped = true; save(); render(); break; }
+    case 'lgplan': { closeModal(); const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names, k:pm.tot.k, p:pm.tot.p, c:pm.tot.c, f:pm.tot.f, src:'plan', ms: pm.fast ? null : {sig:mealSig(pm), name:mealTitle(pm), ids:pm.items.map(i => i.id), kind:kindOf(sl)}}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgcustom': lgCustomModal(el.dataset.m); break;
     case 'lgcustomgo': { const v = id => parseFloat($('#' + id).value) || 0, name = $('#lc_name').value.trim() || 'Item'; if(!v('lc_k')){ toast('Add the calories'); break; } logAdd(logDate || today(), el.dataset.m, {name, k:v('lc_k'), p:v('lc_p'), c:v('lc_c'), f:v('lc_f')}); closeModal(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgout': { lo.mi = +el.dataset.mi; lo.mealId = lo.mi >= 0 ? S.settings.meals[lo.mi].id : 'extra'; const b = loBudgets(); lo.budget = lo.mi >= 0 ? Math.round(b.target) : Math.max(0, Math.round(b.remaining)); lo.chain = null; logOutModal(); break; }
@@ -2492,6 +2672,7 @@ document.addEventListener('change', e => {
     save(); if(view==='settings') render(); return;
   }
   const a = el.dataset.act;
+  if(a === 'lg_note'){ logEnsure(logDate || today()).note = el.value; save(); return; }
   if(a === 'lg_steps'){ logEnsure(logDate || today()).steps = Math.max(0, parseFloat(el.value) || 0); save(); return; }
   if(a === 'lg_active'){ logEnsure(logDate || today()).active = Math.max(0, parseFloat(el.value) || 0); save(); render(); return; }
   if(a === 'scanfile'){ scanPhoto(el.files && el.files[0]); return; }
