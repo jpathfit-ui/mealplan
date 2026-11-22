@@ -255,6 +255,12 @@ main>.seg{margin:14px 0 4px}
 .done-t{color:var(--acc)}
 .fit{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--acc2);color:var(--acc);margin-left:6px}
 .fit.over{background:var(--warnbg);color:var(--warn)}
+
+.rate{display:flex;align-items:center;gap:2px;padding:0 0 6px;flex-wrap:wrap}
+.rate .mut{margin-right:6px;font-size:12px}
+.star.heart{color:var(--line)}.star.heart.on{color:var(--terra)}
+.mn .star{font-size:20px;vertical-align:1px}
+#modal textarea{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 11px}
 </style>
 </head>
 <body>
@@ -584,7 +590,9 @@ function qtyLabel(it){
 }
 const totals = (items, g) => items.reduce((t,it,i) => { const m=g[i]/100; t.k+=it.k*m; t.p+=it.p*m; t.c+=it.c*m; t.f+=it.f*m; return t; }, {k:0,p:0,c:0,f:0});
 
+function isAvoided(f){ const a = (S.settings.avoid || []); if(!a.length) return false; const n = f.name.toLowerCase(); return a.some(t => t && n.includes(t.toLowerCase())); }
 function allowed(f, meal){
+  if(isAvoided(f)) return false;
   if(f.use && f.use[meal.id] !== undefined) return !!f.use[meal.id];
   if(f.kinds) return f.kinds.includes(kindOf(meal));
   return true;
@@ -651,6 +659,18 @@ function comboCands(slot, T, opt, recent, temp, lo, hi, forces){
   }
   return cands;
 }
+function favCands(slot, T, lo, hi, opt, forces){
+  const res = [], kind = kindOf(slot);
+  Object.entries(S.ratings || {}).forEach(([sg, r]) => {
+    if(!r.fav || (r.kind && r.kind !== kind) || (opt && opt.avoid === sg)) return;
+    const items = (r.ids || []).map(foodById);
+    if(!items.length || items.some(f => !f || !f.on || f.mode === 'addon' || !allowed(f, slot))) return;
+    if(forces && forces.some(fo => !items.some(f => f.id === fo.id))) return;
+    const o = optimize(items, T, opt && opt.force), tt = totals(items, o.g);
+    res.push({t:{n:r.name, temp:'any'}, items, g:o.g, tt, score:o.err, sig:sg, inK: tt.k >= lo && tt.k <= hi, fav:true});
+  });
+  return res;
+}
 function solveMeal(slot, T, pool, opt, recent){
   const st = S.settings;
   const temp = opt.temp || slot.temp || 'any';
@@ -661,14 +681,18 @@ function solveMeal(slot, T, pool, opt, recent){
   const pickBest = cands => {
     let usable = cands.filter(c => c.inK);
     if(!usable.length) usable = cands;
-    usable.sort((a,b) => a.score - b.score);
+    const R = S.ratings || {}, keep = usable.filter(c => !(R[c.sig] && R[c.sig].stars && R[c.sig].stars <= 2));
+    if(keep.length) usable = keep;
+    const rf = c => { const r = R[c.sig]; if(!r) return 1; let f = 1; if(r.stars) f *= ({1:3, 2:1.8, 3:1, 4:.75, 5:.55})[r.stars] || 1; if(r.fav) f *= .7; return f; };
+    usable.sort((a,b) => a.score*rf(a) - b.score*rf(b));
     return pick(usable.slice(0, Math.min(5, usable.length)));
   };
   const adds = () => S.foods.filter(f => f.on && f.mode === 'addon' && allowed(f, slot)).map(f => ({id:f.id, g:f.addG || 10}));
-  const out = (c, free) => ({name: slot.name, type: slot.type, want: temp, tpl: c.t.n, temp: c.t.temp, sig: c.sig, combo: c.combo || null, cname: c.combo ? c.t.n : null, free: !!free,
+  const out = (c, free) => ({name: slot.name, type: slot.type, want: temp, tpl: c.t.n, temp: c.t.temp, sig: c.sig, combo: c.combo || null, cname: (c.combo || c.fav) ? c.t.n : null, free: !!free,
           items: c.items.map((f,i) => ({id:f.id, g:c.g[i]})), add: adds(), tot: c.tt});
   let cc = [];
   if(mode !== 'free') cc = comboCands(slot, T, opt, recent, temp, lo, hi, forces);
+  if(mode !== 'free' && mode !== 'only') cc = cc.concat(favCands(slot, T, lo, hi, opt, forces));
   if(mode === 'only') return cc.length ? out(pickBest(cc)) : null;
   if(mode === 'strict' && cc.length) return out(pickBest(cc));
   if(mode === 'prefer' && cc.length && Math.random() < 0.75) return out(pickBest(cc));
@@ -700,6 +724,7 @@ function solveMeal(slot, T, pool, opt, recent){
     uniq.forEach(f => { score += 0.015 * ((recent && recent[f.id]) || 0); });
     cands.push({t, items:uniq, g:o.g, tt, score, sig, inK: tt.k >= lo && tt.k <= hi});
   }
+  if(mode === 'free') cands.push(...favCands(slot, T, lo, hi, opt, forces));
   if(!cands.length) return null;
   return out(pickBest(cands), mode === 'strict');
 }
@@ -786,6 +811,7 @@ function swapMeal(di, mi, opt){
   const rule = {must: pd.filter(f => here.has(f.id) && !ex.includes(f.id)).map(f => f.id), ban: pd.filter(f => !here.has(f.id) || ex.includes(f.id)).map(f => f.id)};
   const m = withRule(slot0, rule, sl => solveMeal(sl, T, poolFor(sl), {...opt, avoid: cur.sig})) || solveMeal(slot0, T, poolFor(slot0), {...opt, avoid: cur.sig});
   if(!m){ toast('No alternative found with these foods'); return; }
+  m.cuisine = cur.cuisine;
   S.plan.list[di][mi] = m;
   save(); render();
 }
@@ -931,10 +957,14 @@ function vPlan(){
   const [lo,hi] = dayWindow();
   const L = groceryLines();
   const tp = st.kcal*st.pPct/100/4, tc = st.kcal*st.cPct/100/4, tf = st.kcal*st.fPct/100/9;
+  { const av = planAvoided(); if(av.length) h += `<div class="warn"><b>Your plan has foods on your avoid list:</b> ${esc(av.join(', '))}. Generate a new plan to remove them.</div>`; }
   h += warnings().map(w => `<div class="warn">${esc(w)}</div>`).join('');
   h += `<div class="card panel"><div class="ringrow">${ringSVG(a.k, st.kcal)}<div class="macros">
     ${macroBar('Protein', a.p, tp, 'var(--acc)')}${macroBar('Carbs', a.c, tc, 'var(--ochre)')}${macroBar('Fat', a.f, tf, 'var(--terra)')}</div></div>
     <div class="sumline"><span>${P.days}-day plan${P.rotate>1?`, ${P.rotate} rotating menus`:P.days>1?', same meals daily':''}</span><span>Est. total <b>${money(L.total)}</b></span></div></div>`;
+  { const rcn = rcCounts(); h += `<div class="card"><h2>Recipes</h2><div class="mut">Set a style on each meal if you like, then one tap writes a recipe for every meal in the plan, using your allergies, equipment and pantry.</div>
+     <div class="row" style="margin-top:12px"><button class="b" style="flex:1" data-act="rcopen">Get my recipes</button><button class="g" data-act="rppaste">Paste recipes</button></div>
+     <div class="mut" style="margin-top:8px">${rcn.have} of ${rcn.n} meals have a recipe saved.</div></div>`; }
   const startIdx = Math.max(0, Math.min(P.days - 1, dayDiff(P.created, today())));
   if(planOpen === null) planOpen = {[startIdx]: true};
   for(let n = 0; n < P.days; n++){
@@ -945,13 +975,13 @@ function vPlan(){
     if(open){
       h += `<div class="nums" style="margin:10px 0 4px">P ${Math.round(t.p)} g · C ${Math.round(t.c)} g · F ${Math.round(t.f)} g</div>`;
       d.forEach((m,mi) => {
-            h += `<div class="meal ${mi===0?'first':''}"><div class="nm"><span class="mn">${esc(m.name)}</span><span class="mk">${Math.round(m.tot.k)}<small> kcal</small></span></div>
+            h += `<div class="meal ${mi===0?'first':''}"><div class="nm"><span class="mn">${esc(m.name)}${m.fast ? '' : ` <button class="star heart ${((S.ratings || {})[mealSig(m)] || {}).fav ? 'on' : ''}" data-act="mfav" data-d="${di}" data-m="${mi}" aria-label="Favourite meal">${((S.ratings || {})[mealSig(m)] || {}).fav ? '♥' : '♡'}</button>`}</span><span class="mk">${Math.round(m.tot.k)}<small> kcal</small></span></div>
        <div class="mt">${m.cname?`<b>${esc(m.cname)}</b> · `:''}${m.type==='snack'?'Snack':m.type==='big'?'Big meal':'Light meal'}${m.want&&m.want!=='any'?' · '+(m.want==='hot'?'Hot':'Cold'):''}</div>
        ${m.fast ? `<div class="ing"><span>${esc(m.fast.name)}${m.fast.q !== 1 ? ' ×' + m.fast.q : ''}</span><b>${m.fast.price ? money(m.fast.price) : 'eat out'}</b></div>` : ''}
        ${m.items.map(it => `<div class="ing"><span>${esc(foodById(it.id)?.name||'?')}</span><b>${qtyLabel(it)}</b></div>`).join('')}
        ${(m.add||[]).map(it => `<div class="ing add"><span>${esc(foodById(it.id)?.name||'?')} <small>add-on</small></span><b>${it.g} g</b></div>`).join('')}
        <div class="nums">P ${Math.round(m.tot.p)} · C ${Math.round(m.tot.c)} · F ${Math.round(m.tot.f)}</div>
-       <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="eatout" data-d="${di}" data-m="${mi}">Eat out</button>${m.fast ? '' : `<button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">Find a recipe</button><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button>`}</div>`;
+       <div class="btns"><button class="s" data-act="swap" data-d="${di}" data-m="${mi}">Swap</button><button class="s" data-act="eatout" data-d="${di}" data-m="${mi}">Eat out</button>${m.fast ? '' : `<button class="s" data-act="mstyle" data-d="${di}" data-m="${mi}">Style: ${esc(styleLabel(m))}</button><button class="s" data-act="recipe" data-d="${di}" data-m="${mi}">${m.recipe ? 'View recipe' : 'Find a recipe'}</button><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button>`}</div>`;
       });
     }
     h += `</div>`;
@@ -1122,7 +1152,7 @@ function menuFor(date){
   return {day: P.list[n % P.rotate], n, past: n >= P.days};
 }
 function plannedK(menu, i){ const st = S.settings; return menu && menu.day[i] ? menu.day[i].tot.k : targets()[i].k; }
-function logAdd(date, mid, e){ logMeal(date, mid).entries.push({name:e.name, k:Math.round(e.k), p:Math.round(e.p*10)/10, c:Math.round(e.c*10)/10, f:Math.round(e.f*10)/10, src:e.src || 'manual'}); logMeal(date, mid).skipped = false; save(); }
+function logAdd(date, mid, e){ logMeal(date, mid).entries.push({name:e.name, k:Math.round(e.k), p:Math.round(e.p*10)/10, c:Math.round(e.c*10)/10, f:Math.round(e.f*10)/10, src:e.src || 'manual', ms:e.ms || null}); logMeal(date, mid).skipped = false; save(); }
 function vLog(){
   const st = S.settings, date = logDate || (logDate = today()), L = logEnsure(date), menu = menuFor(date), tot = logTotals(date);
   const tgt = st.kcal, left = tgt - tot.k, over = left < 0;
@@ -1149,7 +1179,8 @@ function vLog(){
     h += `<div class="lgm"><div class="lgm-h"><b>${esc(sl.name)}</b><span class="mut">${lm.entries.length ? `<span class="done-t"><b>${Math.round(lk)}</b></span> / ` : ''}${Math.round(plannedK(menu, i))} kcal</span></div>
      ${pm ? `<div class="lgm-p">${pm.cname ? esc(pm.cname) + ': ' : ''}${esc(names)}</div>` : ''}
      ${lm.skipped ? '<div class="mut">Skipped</div>' : ''}
-     ${lm.entries.map((e, j) => `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small></span><button class="x" data-act="lgdel" data-m="${sl.id}" data-i="${j}" aria-label="Remove">×</button></div>`).join('')}
+     ${lm.entries.map((e, j) => `<div class="lge"><span>${esc(e.name)}<small>${e.k} kcal · P ${Math.round(e.p)} · C ${Math.round(e.c)} · F ${Math.round(e.f)}</small></span><button class="x" data-act="lgdel" data-m="${sl.id}" data-i="${j}" aria-label="Remove">×</button></div>${e.ms ? rateRow(e.ms) : ''}`).join('')}
+     ${pm && pm.recipe ? `<div class="btns"><button class="s" data-act="lgrecipe" data-d="${menu.n % S.plan.rotate}" data-m="${i}">View recipe</button></div>` : ''}
      <div class="btns">${pm && !lm.entries.length ? `<button class="s" data-act="lgplan" data-mi="${i}">Ate as planned</button>` : ''}<button class="s" data-act="lgout" data-mi="${i}">Eat out</button><button class="s" data-act="lgcustom" data-m="${sl.id}">Add item</button>${lm.entries.length || lm.skipped ? '' : `<button class="g" data-act="lgskip" data-m="${sl.id}">Skip</button>`}</div></div>`;
   });
   const ex = (L.meals.extra || {entries:[]}).entries;
@@ -1244,6 +1275,191 @@ function fitSync(){
   }).catch(e => { fitMsg = 'Could not sync: ' + e.message; if(/401/.test(e.message)) gTok = null; if(view === 'log' || view === 'settings') render(); });
 }
 
+/* ---------- diet, kitchen, recipes, ratings ---------- */
+const CUISINES = ['Plain and simple','Mediterranean','Chinese','Indian','Mexican','Italian','Japanese','Thai','Korean','Greek','Middle Eastern','Caribbean','Southern comfort','French'];
+const EQUIP = [['stovetop','Stovetop'],['oven','Oven'],['microwave','Microwave'],['air fryer','Air fryer'],['slow cooker','Slow cooker'],['Instant Pot','Instant Pot'],['grill','Grill or BBQ'],['rice cooker','Rice cooker'],['blender','Blender']];
+const PANTRY_QUICK = ['Soy sauce','Olive oil','Hot sauce','Garlic','Ketchup','Mustard','Mayo','Salsa','Curry paste','Italian herbs','Chili flakes','Vinegar','Honey','Sriracha','Cumin','Paprika'];
+const EFFORT = [['easy','Minimal effort'],['medium','Some cooking'],['pro','Happy to cook']];
+function cookS(){ const st = S.settings; if(!st.equip) st.equip = ['stovetop','oven','microwave']; if(st.maxMin === undefined) st.maxMin = 30; if(!st.skill) st.skill = 'easy'; if(!st.avoid) st.avoid = []; if(!st.pantry) st.pantry = []; return st; }
+function tagList(arr, act){ return arr.length ? `<div class="chips">${arr.map((t, i) => `<span class="tagx">${esc(t)}<button data-act="${act}" data-i="${i}" aria-label="Remove">×</button></span>`).join('')}</div>` : ''; }
+function allergyBody(){
+  const st = cookS(), hidden = S.foods.filter(isAvoided).map(f => f.name);
+  return `<div class="warn" style="margin-top:0">A hard rule. Foods whose name contains any of these words are never planned, never on the shopping list, and the recipe prompt says to avoid them, including hidden in sauces and stock.</div>
+   ${tagList(st.avoid, 'avdel')}
+   <div class="row" style="margin-top:8px"><input id="av_in" placeholder="e.g. peanut, shellfish, dairy, cilantro" style="flex:1" autocapitalize="off"><button class="b" data-act="avadd">Add</button></div>
+   ${hidden.length ? `<div class="mut" style="margin-top:10px">Hidden from plans: ${esc(hidden.join(', '))}</div>` : ''}`;
+}
+function kitchenBody(){
+  const st = cookS(), chip = (on, act, v, l) => `<button class="chip ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(String(v))}">${esc(l)}</button>`;
+  return `<div class="mut" style="font-weight:600">Equipment you have</div><div class="chips">${EQUIP.map(([v, l]) => chip(st.equip.includes(v), 'eqtog', v, l)).join('')}</div>
+   <div class="mut" style="font-weight:600;margin-top:12px">Max time per meal</div><div class="chips">${[[0,'Any'],[15,'15 min'],[30,'30 min'],[45,'45 min'],[60,'60 min']].map(([v, l]) => chip(st.maxMin === v, 'maxmin', v, l)).join('')}</div>
+   <div class="mut" style="font-weight:600;margin-top:12px">Effort</div><div class="chips">${EFFORT.map(([v, l]) => chip(st.skill === v, 'skill', v, l)).join('')}</div>
+   <div class="mut" style="font-weight:600;margin-top:12px">Pantry: sauces, spices and condiments you have</div>
+   <div class="chips">${PANTRY_QUICK.map(v => chip(st.pantry.includes(v), 'pntog', v, v)).join('')}</div>
+   ${tagList(st.pantry.filter(x => !PANTRY_QUICK.includes(x)), 'pndel2')}
+   <div class="row" style="margin-top:8px"><input id="pn_in" placeholder="Add your own" style="flex:1"><button class="g" data-act="pnadd">Add</button></div>`;
+}
+function planAvoided(){
+  if(!S.plan) return []; const bad = new Set();
+  S.plan.list.forEach(d => d.forEach(m => m.items.concat(m.add || []).forEach(it => { const f = foodById(it.id); if(f && isAvoided(f)) bad.add(f.name); })));
+  return [...bad];
+}
+/* ----- per meal style ----- */
+let styleCtx = null;
+function mealTitle(m){ return m.cname || m.items.slice(0, 2).map(it => cleanName((foodById(it.id) || {name:'?'}).name)).join(' & ') || m.name; }
+function styleLabel(m){ const c = m.cuisine || []; return c.length ? c.join(', ') : 'Plain and simple'; }
+function styleModal(di, mi, all){
+  styleCtx = {di, mi}; const m = S.plan.list[di][mi], cur = m.cuisine || [];
+  openModal(`<h3>Style: ${esc(m.name)}</h3><div class="mut" style="margin-bottom:8px">Pick one or more. The recipe comes back in that style using the same ingredients and amounts.</div>
+   <div class="chips">${CUISINES.map(c => `<button class="chip ${(c === 'Plain and simple' ? !cur.length : cur.includes(c)) ? 'on' : ''}" data-act="styletog" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+   <label class="f" style="margin-top:10px">Other (your own culture or style)<input id="st_other" value="${esc(cur.filter(c => !CUISINES.includes(c)).join(', '))}" placeholder="e.g. Sri Lankan, Ethiopian"></label>
+   <div class="row" style="margin-top:16px"><button class="b" data-act="styledone">Done</button><button class="g" data-act="styleall">Use for every meal</button></div>`);
+}
+/* ----- the recipe sheet ----- */
+let rc = {scope:'all', di:0, mi:0, note:''};
+function rcMenus(){
+  const P = S.plan, R = P.rotate; let ids = [...Array(R).keys()];
+  if(rc.scope !== 'all') ids = [rc.di % R];
+  return ids.map(di => ({di, days:[...Array(P.days).keys()].filter(n => n % R === di).map(n => n + 1),
+    meals:P.list[di].map((m, mi) => ({m, mi})).filter(x => !x.m.fast && (rc.scope !== 'meal' || x.mi === rc.mi))}));
+}
+function rcParts(){
+  const st = cookS(), menus = rcMenus().filter(x => x.meals.length), fmt = rcFormat();
+  const eq = st.equip.length ? st.equip.join(', ') : 'any basic kitchen equipment';
+  const head = `You are my personal chef. Write ready-to-cook recipes for the meals below.
+
+HARD RULES
+${st.avoid.length ? `- ALLERGIES AND FOODS TO AVOID. Never include these, and also check sauces, stocks, spice blends and garnishes for hidden versions: ${st.avoid.join(', ')}.\n` : ''}- Use only the ingredients listed for each meal, my pantry items, and basics (salt, pepper, water). Do not add other foods.
+- Keep the listed amounts exactly so the calories and macros stay the same.
+
+MY KITCHEN
+- Equipment: ${eq}
+- Max time per meal: ${st.maxMin ? st.maxMin + ' minutes including prep' : 'no limit'}
+- Effort: ${({easy:'minimal effort, few steps, little cleanup', medium:'some cooking is fine', pro:'happy to cook properly'})[st.skill]}
+${st.pantry.length ? `- Pantry (sauces, spices, condiments I have): ${st.pantry.join(', ')}\n` : ''}${rc.note ? `- Other notes: ${rc.note}\n` : ''}
+MEALS
+`;
+  const blocks = menus.map(mn => `## Menu ${mn.di + 1}${S.plan.days > 1 ? ` (used on day${mn.days.length > 1 ? 's' : ''} ${mn.days.join(', ')})` : ''}\n` + mn.meals.map(({m, mi}) => {
+    const t = m.tot, ing = m.items.map(it => `${foodById(it.id)?.name || '?'} ${qtyLabel(it)}`).concat((m.add || []).map(it => `${foodById(it.id)?.name || '?'} ${it.g} g`)).join('; ');
+    return `[${mn.di + 1}.${mi + 1}] ${m.name} (${Math.round(t.k)} kcal, P ${Math.round(t.p)} g, C ${Math.round(t.c)} g, F ${Math.round(t.f)} g). Style: ${styleLabel(m)}.\n  Ingredients: ${ing}`;
+  }).join('\n'));
+  const parts = []; let cur = [], len = 0;
+  blocks.forEach(b => { if(cur.length && len + b.length > 3000){ parts.push(cur); cur = []; len = 0; } cur.push(b); len += b.length; });
+  if(cur.length) parts.push(cur);
+  return parts.map(bs => head + bs.join('\n\n') + '\n\n' + fmt);
+}
+function rcFormat(){
+  return `FORMAT. Reply with one block per meal, exactly like this, so I can paste it into my app. Keep the [x.y] numbers.
+
+### MEAL [1.1] Breakfast: Dish name
+TIME: 15 min
+INGREDIENTS:
+- 4 eggs (200 g)
+STEPS:
+1. First step
+2. Second step
+NOTE: one line on storage, reheating or batch cooking
+ALT: one-line variation in a different style using the same ingredients
+
+Write nothing before the first block or after the last.`;
+}
+function rcCounts(){ let n = 0, have = 0; S.plan.list.forEach(d => d.forEach(m => { if(!m.fast){ n++; if(m.recipe) have++; } })); return {n, have}; }
+function recipeSheet(scope, di, mi){
+  if(scope){ rc.scope = scope; rc.di = di || 0; rc.mi = mi || 0; }
+  const keep = (document.querySelector('#modal .sheet') || {}).scrollTop || 0;
+  const st = cookS(), parts = rcParts(), menus = rcMenus(), cnt = menus.reduce((a, m) => a + m.meals.length, 0);
+  const chip = (on, act, v, l) => `<button class="chip ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(String(v))}">${esc(l)}</button>`;
+  const total = rcCounts();
+  openModal(`<h3>Get my recipes</h3>
+   <div class="mut">${cnt} recipe${cnt === 1 ? '' : 's'} to write${S.plan.days > menus.length && rc.scope === 'all' ? `. Repeat days reuse these ${menus.length} menu${menus.length === 1 ? '' : 's'}.` : '.'}</div>
+   <div class="subh">What to cook</div>
+   <div class="chips">${chip(rc.scope === 'all', 'rcscope', 'all', 'Whole plan')}${chip(rc.scope === 'day', 'rcscope', 'day', 'This day')}${chip(rc.scope === 'meal', 'rcscope', 'meal', 'This meal')}</div>
+   <div class="subh">Style</div>
+   <div class="mut">Set on each meal in the plan. Quick set for these meals:</div>
+   <div class="chips">${CUISINES.map(c => chip(false, 'rcstyle', c, c)).join('')}</div>
+   <div class="subh">Cooking</div>
+   <div class="chips">${EQUIP.map(([v, l]) => chip(st.equip.includes(v), 'eqtog2', v, l)).join('')}</div>
+   <div class="chips">${[[0,'Any time'],[15,'15 min'],[30,'30 min'],[45,'45 min'],[60,'60 min']].map(([v, l]) => chip(st.maxMin === v, 'maxmin2', v, l)).join('')}</div>
+   <div class="chips">${EFFORT.map(([v, l]) => chip(st.skill === v, 'skill2', v, l)).join('')}</div>
+   <div class="subh">Avoid</div>
+   <div class="mut">${st.avoid.length ? 'Never: ' + esc(st.avoid.join(', ')) + '.' : 'No allergies set. Add them in Settings, Allergies and foods to avoid.'}${st.pantry.length ? ' Pantry: ' + esc(st.pantry.join(', ')) + '.' : ''}</div>
+   <label class="f" style="margin-top:8px">Anything else (optional)<input id="rc_note" value="${esc(rc.note)}" placeholder="e.g. kid-friendly, not spicy, one pan"></label>
+   <div class="subh">Send${parts.length > 1 ? ` (${parts.length} parts, so each answer stays readable)` : ''}</div>
+   ${parts.map((_, i) => `<div class="eo"><div class="row">${parts.length > 1 ? `<b>Part ${i + 1}</b>` : ''}<button class="b" data-act="rcgo" data-d="copy" data-i="${i}">Copy prompt</button></div>
+     <div class="row" style="margin-top:8px"><button class="s" data-act="rcgo" data-d="c" data-i="${i}">Open in Claude</button><button class="s" data-act="rcgo" data-d="t" data-i="${i}">ChatGPT</button><button class="s" data-act="rcgo" data-d="g" data-i="${i}">Google</button></div></div>`).join('')}
+   <div class="subh">Bring the recipes back</div>
+   <div class="mut">${total.have} of ${total.n} meals have a recipe saved. Paste the reply and each recipe attaches to its meal.</div>
+   <div class="row" style="margin-top:8px"><button class="b" data-act="rppaste">Paste recipes</button><button class="g" data-act="mclose2">Close</button></div>`);
+  const sh = document.querySelector('#modal .sheet'); if(sh) sh.scrollTop = keep;
+}
+function rcGo(dest, i){
+  const parts = rcParts(), t = parts[i] || parts[0];
+  if(dest === 'copy'){ navigator.clipboard.writeText(t).then(() => toast('Prompt copied. Paste it into any assistant.')).catch(() => toast('Could not copy. Use the open buttons instead.')); return; }
+  const q = encodeURIComponent(t), url = {c:'https://claude.ai/new?q=' + q, t:'https://chatgpt.com/?q=' + q, g:'https://www.google.com/search?q=' + q}[dest];
+  window.open(url, '_blank', 'noopener');
+}
+function pasteModal(){
+  openModal(`<h3>Paste recipes</h3><div class="mut" style="margin-bottom:8px">Paste the whole reply. Each block starting with ### MEAL [1.1] is matched to that meal.</div>
+   <textarea id="rp_text" rows="10" style="width:100%" placeholder="### MEAL [1.1] Breakfast: ..."></textarea>
+   <div class="row" style="margin-top:14px"><button class="b" data-act="rpgo">Save recipes</button><button class="g" data-act="rcback">Back</button></div>`);
+}
+function parseRecipes(txt){
+  const re = /^[ \t>*_#-]*MEAL\s*\[\s*(\d+)\s*\.\s*(\d+)\s*\][ \t]*([^\n]*)$/gim, hits = []; let m;
+  while((m = re.exec(txt))) hits.push({di:+m[1] - 1, mi:+m[2] - 1, head:m[3], at:m.index, end:re.lastIndex});
+  let n = 0;
+  hits.forEach((h, k) => {
+    const body = txt.slice(h.end, k + 1 < hits.length ? hits[k + 1].at : txt.length).replace(/^\s*[:\-–—]\s*/, '').trim();
+    const meal = S.plan.list[h.di] && S.plan.list[h.di][h.mi]; if(!meal) return;
+    let title = h.head.replace(/[*_#]/g, '').trim(); title = title.includes(':') ? title.slice(title.indexOf(':') + 1).trim() : title;
+    meal.recipe = {title: title || mealTitle(meal), text: body.replace(/\*\*/g, ''), saved: today()}; n++;
+  });
+  return n;
+}
+function fmtRecipe(text){
+  const sec = {}; let key = 'intro'; sec[key] = [];
+  text.split('\n').forEach(l => { const mm = l.match(/^\s*(TIME|INGREDIENTS|STEPS|NOTE|ALT)\s*:\s*(.*)$/i); if(mm){ key = mm[1].toUpperCase(); sec[key] = mm[2] ? [mm[2]] : []; } else if(l.trim()) sec[key].push(l.trim()); });
+  const li = a => a.map(x => `<div style="padding:3px 0">${esc(x.replace(/^[-•*]\s*/, ''))}</div>`).join('');
+  return (sec.TIME ? `<div class="tag" style="margin-top:8px">${esc(sec.TIME.join(' '))}</div>` : '')
+    + (sec.INGREDIENTS ? `<div class="subh">Ingredients</div>${li(sec.INGREDIENTS)}` : '')
+    + (sec.STEPS ? `<div class="subh">Steps</div>${sec.STEPS.map(x => `<div style="padding:5px 0">${esc(x)}</div>`).join('')}` : '')
+    + (sec.NOTE ? `<div class="subh">Note</div><div>${esc(sec.NOTE.join(' '))}</div>` : '')
+    + (sec.ALT ? `<div class="subh">Variation</div><div>${esc(sec.ALT.join(' '))}</div>` : '')
+    + (!sec.INGREDIENTS && !sec.STEPS ? `<div style="white-space:pre-wrap;margin-top:8px">${esc(text)}</div>` : '');
+}
+function viewRecipeModal(di, mi){
+  const m = S.plan.list[di][mi], r = m.recipe; if(!r) return recipeSheet('meal', di, mi);
+  openModal(`<h3>${esc(r.title)}</h3><div class="mut">${esc(m.name)} · ${esc(styleLabel(m))}</div>${fmtRecipe(r.text)}
+   <div class="row" style="margin-top:16px"><button class="s" data-act="savemeal" data-d="${di}" data-m="${mi}">Save meal</button><button class="g" data-act="rcredo" data-d="${di}" data-m="${mi}">New recipe</button><button class="g" data-act="rcdel" data-d="${di}" data-m="${mi}">Remove</button><button class="g" data-act="mclose2">Close</button></div>`);
+}
+/* ----- ratings and favourites ----- */
+function mealSig(m){ return m.sig || m.items.map(i => i.id).sort().join('|'); }
+function rateRec(info){
+  if(!S.ratings) S.ratings = {};
+  if(!S.ratings[info.sig]) S.ratings[info.sig] = {name:info.name, ids:info.ids, kind:info.kind, stars:0, fav:false};
+  return S.ratings[info.sig];
+}
+function planInfo(di, mi){
+  const m = S.plan.list[di][mi], slot = S.settings.meals[mi] || m;
+  return {sig:mealSig(m), name:mealTitle(m), ids:m.items.map(i => i.id), kind:kindOf(slot)};
+}
+function findMs(sig){
+  if((S.ratings || {})[sig]) return S.ratings[sig];
+  const L = (S.log2 || {})[logDate || today()]; let f = null;
+  if(L) Object.values(L.meals).forEach(m => m.entries.forEach(e => { if(e.ms && e.ms.sig === sig) f = e.ms; }));
+  return f;
+}
+function rateRow(ms){
+  const r = (S.ratings || {})[ms.sig] || {stars:0, fav:false};
+  return `<div class="rate"><span class="mut">${r.stars ? 'Your rating' : 'How was it?'}</span>${[1,2,3,4,5].map(v => `<button class="star ${r.stars >= v ? 'on' : ''}" data-act="rate" data-sig="${esc(ms.sig)}" data-v="${v}" aria-label="${v} stars">${r.stars >= v ? '★' : '☆'}</button>`).join('')}<button class="star heart ${r.fav ? 'on' : ''}" data-act="favsig" data-sig="${esc(ms.sig)}" aria-label="Favourite">${r.fav ? '♥' : '♡'}</button></div>`;
+}
+function favMealsHtml(){
+  const R = S.ratings || {}, fav = Object.entries(R).filter(([, r]) => r.fav);
+  return `<div class="card"><h2>Favourite meals</h2>` + (fav.length ? fav.map(([sg, r]) => {
+    const fs = (r.ids || []).map(foodById), ok = fs.every(f => f && f.on && !isAvoided(f));
+    return `<div class="fav"><div class="fav-m"><b>${esc(r.name)}</b><small>${esc(fs.map(f => f ? cleanName(f.name) : '?').join(', '))}</small><small>${r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : 'Not rated yet'}${ok ? '' : ' · some foods are not ticked'}</small></div><div class="fav-a"><button class="star heart on" data-act="favsig" data-sig="${esc(sg)}" aria-label="Remove favourite">♥</button></div></div>`;
+  }).join('') + `<div class="mut" style="margin-top:8px">The planner offers these more often. Meals you rate 4 or 5 stars come up more, and 1 or 2 stars quietly stop appearing.</div>` : `<div class="mut">Tap the heart on a meal in your plan, or in the Log after you eat it, and it shows up here. Rate meals in the Log to teach the planner what you like.</div>`) + `</div>`;
+}
+
 /* ---------- Meals: Canadian fast food ---------- */
 const FAST_DB = [
  ['tims','Tim Hortons',[['Egg & Cheese English Muffin',300,16,30,12,4.2],['Bacon Breakfast Sandwich',370,18,32,18,5],['Sausage Breakfast Sandwich',470,19,32,29,5.5],['Chicken Club Sandwich',520,30,45,24,8],['Chipotle Chicken Wrap',440,25,38,20,7.5],['Everything Bagel with Cream Cheese',380,13,58,11,3.6],['Chicken Noodle Soup',100,8,12,2,3.8],['Medium Double Double',240,3,32,11,2.3],['Timbits 10 pack',400,5,52,20,4.3]]],
@@ -1276,7 +1492,8 @@ function fastRow(it){
 }
 function vFast(){
   const F = fastEnsure(), favs = F.favs.map(fastById).filter(Boolean);
-  let h = `<div class="card"><h2>Favourites</h2>`;
+  let h = favMealsHtml();
+  h += `<div class="card"><h2>Fast food favourites</h2>`;
   h += favs.length ? favs.map(it => { const q = F.qty[it.id] || 1;
     return `<div class="fav"><div class="fav-m"><b>${esc(it.name)}</b><small>${esc(chainName(it.chain))}${q !== 1 ? ' · ×' + q : ''}</small><small>${fastMacros(it, q)}</small></div>
      <div class="fav-a"><button class="s" data-act="fedit" data-id="${it.id}">Adjust</button><button class="star on" data-act="fstar" data-id="${it.id}" aria-label="Remove favourite">★</button></div></div>`; }).join('')
@@ -1344,7 +1561,7 @@ function foodTabs(){ return seg([['foods','Foods'],['meals','Meals'],['combos','
 function foodBar(ph, scan){
   return `<div class="fbar"><input id="food_q" type="search" autocomplete="off" placeholder="${ph}" value="${esc(foodQ)}">${scan ? `<button class="ibtn" data-act="scan" aria-label="Scan barcode">${CAM}</button>` : ''}</div>${seg(MEAL_FILTERS, foodMeal, 'fmeal')}`;
 }
-function vFoods(){ return foodTabs() + (foodTab === 'combos' ? vCombos() : foodTab === 'meals' ? vFast() : vFoodList()); }
+function vFoods(){ const hid = S.foods.filter(f => f.on && isAvoided(f)).map(f => f.name); return foodTabs() + (hid.length ? `<div class="warn">Hidden from plans by your avoid list: ${esc(hid.join(', '))}.</div>` : '') + (foodTab === 'combos' ? vCombos() : foodTab === 'meals' ? vFast() : vFoodList()); }
 function foodListHtml(){
   const st = S.settings;
   if(!storeSel || !st.stores.includes(storeSel)) storeSel = st.primary;
@@ -1466,7 +1683,9 @@ function vSettings(){
 
   const mealNames = st.meals.map(m => m.name).join(', ');
   return acc('targets', 'Targets', `${st.kcal} kcal · ${st.pPct}/${st.cPct}/${st.fPct}`, targets)
+       + acc('allergy', 'Allergies and foods to avoid', (st.avoid && st.avoid.length) ? st.avoid.join(', ') : 'None set', allergyBody())
        + acc('meals', 'Meals', `${st.meals.length} per day: ${mealNames}`, meals)
+       + acc('kitchen', 'Kitchen and pantry', (cookS().equip.length) + ' tools · ' + (st.maxMin ? 'under ' + st.maxMin + ' min' : 'any time'), kitchenBody())
        + acc('money', 'Money & stores', `${st.primary} · ${st.stores.length} stores`, money_)
        + acc('fit', 'Fitbit', st.gclient ? (st.gok ? 'Connected' : 'Client ID saved') : 'Not set up', `<div class="mut">Reads your steps and calories burned from the Google Health API (the new home of the Fitbit API) so the Log can show your deficit.</div>
           <label class="f" style="margin-top:12px">Google OAuth client ID<input data-k="gclient" data-str="1" value="${esc(st.gclient || '')}" placeholder="1234-abc.apps.googleusercontent.com" autocapitalize="off" autocorrect="off"></label>
@@ -1748,7 +1967,7 @@ function removeStore(name){
 }
 
 /* ---------- modals ---------- */
-function openModal(html){ $('#modal').innerHTML = `<div class="modal" data-act="mclose"><div class="sheet">${html}</div></div>`; }
+function openModal(html){ if(typeof closeBanner==='function') closeBanner(); $('#modal').innerHTML = `<div class="modal" data-act="mclose"><div class="sheet">${html}</div></div>`; }
 function closeModal(){ stopScan(); $('#modal').innerHTML = ''; }
 
 
@@ -2127,7 +2346,7 @@ document.addEventListener('click', async e => {
     case 'pick': S.settings.pick = el.dataset.v; save(); render(); break;
     case 'sec': openSec[el.dataset.s] = !openSec[el.dataset.s]; render(); break;
     case 'swap': swapModal(+el.dataset.d, +el.dataset.m); break;
-    case 'recipe': recipeModal(+el.dataset.d, +el.dataset.m); break;
+    case 'recipe': viewRecipeModal(+el.dataset.d, +el.dataset.m); break;
     case 'rmethod': S.settings.method = el.dataset.v; save(); recipeModal(recipeCtx.di, recipeCtx.mi); break;
     case 'rtime': S.settings.time = el.dataset.v; save(); recipeModal(recipeCtx.di, recipeCtx.mi); break;
     case 'alloc': {
@@ -2142,12 +2361,37 @@ document.addEventListener('click', async e => {
     case 'sm_save': saveMealGo(); break;
     case 'showrecipe': showRecipe(el.dataset.id); break;
     case 'copynote': try{ await navigator.clipboard.writeText((comboById(el.dataset.id) || {}).note || ''); toast('Copied'); }catch(err){ toast('Select and copy the text'); } break;
+    case 'avadd': { const st = cookS(), v = ($('#av_in').value || '').trim().toLowerCase(); if(v && !st.avoid.includes(v)){ st.avoid.push(v); save(); const bad = planAvoided(); render(); toast(bad.length ? 'Added. Your current plan has ' + bad.join(', ') + ', so generate again.' : 'Added. Those foods are now hidden from plans.'); } break; }
+    case 'avdel': { cookS().avoid.splice(+el.dataset.i, 1); save(); render(); break; }
+    case 'eqtog': case 'eqtog2': { const st = cookS(), v = el.dataset.v, i = st.equip.indexOf(v); if(i < 0) st.equip.push(v); else st.equip.splice(i, 1); save(); a === 'eqtog' ? render() : recipeSheet(); break; }
+    case 'maxmin': case 'maxmin2': { cookS().maxMin = +el.dataset.v; save(); a === 'maxmin' ? render() : recipeSheet(); break; }
+    case 'skill': case 'skill2': { cookS().skill = el.dataset.v; save(); a === 'skill' ? render() : recipeSheet(); break; }
+    case 'pntog': { const st = cookS(), v = el.dataset.v, i = st.pantry.indexOf(v); if(i < 0) st.pantry.push(v); else st.pantry.splice(i, 1); save(); render(); break; }
+    case 'pnadd': { const st = cookS(), v = ($('#pn_in').value || '').trim(); if(v && !st.pantry.includes(v)){ st.pantry.push(v); save(); render(); } break; }
+    case 'pndel2': { const st = cookS(), cust = st.pantry.filter(x => !PANTRY_QUICK.includes(x)); st.pantry = st.pantry.filter(x => x !== cust[+el.dataset.i]); save(); render(); break; }
+    case 'rcopen': recipeSheet('all', 0, 0); break;
+    case 'rcscope': rc.scope = el.dataset.v; recipeSheet(); break;
+    case 'rcstyle': { const v = el.dataset.v; rcMenus().forEach(mn => mn.meals.forEach(({m}) => { m.cuisine = v === 'Plain and simple' ? [] : [v]; })); save(); render(); recipeSheet(); toast('Style set: ' + v); break; }
+    case 'rcgo': rcGo(el.dataset.d, +el.dataset.i); break;
+    case 'rppaste': pasteModal(); break;
+    case 'rcback': recipeSheet(); break;
+    case 'rpgo': { const n = parseRecipes($('#rp_text').value || ''); if(!n){ toast('No recipes found. Keep the ### MEAL [1.1] headings.'); break; } save(); closeModal(); render(); toast('Saved ' + n + ' recipe' + (n === 1 ? '' : 's')); break; }
+    case 'rcredo': recipeSheet('meal', +el.dataset.d, +el.dataset.m); break;
+    case 'rcdel': { delete S.plan.list[+el.dataset.d][+el.dataset.m].recipe; save(); closeModal(); render(); break; }
+    case 'lgrecipe': viewRecipeModal(+el.dataset.d, +el.dataset.m); break;
+    case 'mstyle': styleModal(+el.dataset.d, +el.dataset.m); break;
+    case 'styletog': { const m = S.plan.list[styleCtx.di][styleCtx.mi], v = el.dataset.v; m.cuisine = (m.cuisine || []).filter(x => CUISINES.includes(x) || true); if(v === 'Plain and simple') m.cuisine = []; else { const i = m.cuisine.indexOf(v); if(i < 0) m.cuisine.push(v); else m.cuisine.splice(i, 1); } save(); styleModal(styleCtx.di, styleCtx.mi); break; }
+    case 'styledone': { const m = S.plan.list[styleCtx.di][styleCtx.mi], o = ($('#st_other').value || '').split(',').map(x => x.trim()).filter(Boolean); m.cuisine = (m.cuisine || []).filter(x => CUISINES.includes(x)).concat(o); save(); closeModal(); render(); break; }
+    case 'styleall': { const cur = S.plan.list[styleCtx.di][styleCtx.mi], o = ($('#st_other').value || '').split(',').map(x => x.trim()).filter(Boolean), c = (cur.cuisine || []).filter(x => CUISINES.includes(x)).concat(o); S.plan.list.forEach(d => d.forEach(m => { if(!m.fast) m.cuisine = c.slice(); })); save(); closeModal(); render(); toast('Style applied to every meal'); break; }
+    case 'mfav': { const info = planInfo(+el.dataset.d, +el.dataset.m), r = rateRec(info); r.fav = !r.fav; save(); const y = window.scrollY; render(); window.scrollTo(0, y); toast(r.fav ? 'Added to favourite meals' : 'Removed from favourites'); break; }
+    case 'favsig': { const r = (S.ratings || {})[el.dataset.sig]; if(r){ r.fav = !r.fav; save(); const y = window.scrollY; render(); window.scrollTo(0, y); } break; }
+    case 'rate': { const ms = findMs(el.dataset.sig); if(ms){ const r = rateRec(ms), v = +el.dataset.v; r.stars = r.stars === v ? 0 : v; save(); const y = window.scrollY; render(); window.scrollTo(0, y); } break; }
     case 'fitsync': fitSync(); break;
     case 'lgday': logDate = addDays(logDate || today(), +el.dataset.v); render(); break;
     case 'lg_est': { const L = logEnsure(logDate || today()); L.active = Math.round((L.steps || 0) * 0.04); L.burn = 0; save(); render(); break; }
     case 'lgdel': { const L = logMeal(logDate || today(), el.dataset.m); L.entries.splice(+el.dataset.i, 1); save(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgskip': { logMeal(logDate || today(), el.dataset.m).skipped = true; save(); render(); break; }
-    case 'lgplan': { const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names, k:pm.tot.k, p:pm.tot.p, c:pm.tot.c, f:pm.tot.f, src:'plan'}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
+    case 'lgplan': { const date = logDate || today(), menu = menuFor(date), i = +el.dataset.mi, pm = menu && menu.day[i]; if(pm){ const sl = S.settings.meals[i], names = pm.fast ? pm.fast.name : pm.items.map(it => foodById(it.id)?.name).filter(Boolean).join(', '); logAdd(date, sl.id, {name: (pm.cname ? pm.cname + ': ' : '') + names, k:pm.tot.k, p:pm.tot.p, c:pm.tot.c, f:pm.tot.f, src:'plan', ms: pm.fast ? null : {sig:mealSig(pm), name:mealTitle(pm), ids:pm.items.map(i => i.id), kind:kindOf(sl)}}); } const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgcustom': lgCustomModal(el.dataset.m); break;
     case 'lgcustomgo': { const v = id => parseFloat($('#' + id).value) || 0, name = $('#lc_name').value.trim() || 'Item'; if(!v('lc_k')){ toast('Add the calories'); break; } logAdd(logDate || today(), el.dataset.m, {name, k:v('lc_k'), p:v('lc_p'), c:v('lc_c'), f:v('lc_f')}); closeModal(); const y = window.scrollY; render(); window.scrollTo(0, y); break; }
     case 'lgout': { lo.mi = +el.dataset.mi; lo.mealId = lo.mi >= 0 ? S.settings.meals[lo.mi].id : 'extra'; const b = loBudgets(); lo.budget = lo.mi >= 0 ? Math.round(b.target) : Math.max(0, Math.round(b.remaining)); lo.chain = null; logOutModal(); break; }
@@ -2273,7 +2517,7 @@ document.addEventListener('change', e => {
   if(a === 'sheet'){ st.sheetUrl = el.value.trim(); save(); }
 });
 document.addEventListener('input', e => {
-  if(e.target.id === 'rc_note'){ recipeNote = e.target.value; updateLinks(); }
+  if(e.target.id === 'rc_note'){ rc.note = e.target.value; }
   if(e.target.id === 'home_txt') onHomeInput(e.target.value);
   if(e.target.id === 'sl_q') onLocInput(e.target.value);
   if(e.target.id === 'food_q'){ foodQ = e.target.value.trim(); const l = $('#food_list'); if(l) l.innerHTML = foodTab === 'combos' ? comboListHtml() : foodListHtml(); }
